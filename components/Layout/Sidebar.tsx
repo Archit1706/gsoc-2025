@@ -69,7 +69,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                     </p>
                 </div>
 
-                <div className="flex-1 overflow-y-auto">
+                <div className="flex-1 overflow-y-auto hide-scrollbar max-h-[calc(100vh-8rem)]">
                     {loading ? (
                         <div className="p-4 text-center">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
@@ -84,7 +84,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                             </p>
                         </div>
                     ) : (
-                        <div className="p-2">
+                        <div className="p-2 overflow-y-auto hide-scrollbar">
                             {closures.map((closure) => {
                                 const status = getClosureStatus(closure);
                                 const isSelected = selectedClosure?.id === closure.id;

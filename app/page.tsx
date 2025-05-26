@@ -5,6 +5,7 @@ import { Toaster } from 'react-hot-toast';
 import { ClosuresProvider } from '@/context/ClosuresContext';
 import Layout from '@/components/Layout/Layout';
 import ClosureForm from '@/components/Forms/ClosureForm';
+import DemoControlPanel from '@/components/Demo/DemoControlPanel';
 import L from 'leaflet';
 
 // Dynamically import MapComponent to avoid SSR issues
@@ -69,6 +70,9 @@ export default function Home() {
             isSelectingLocation={isSelectingLocation}
           />
         </Layout>
+
+        {/* Demo Control Panel */}
+        <DemoControlPanel />
 
         <Toaster
           position="top-right"
