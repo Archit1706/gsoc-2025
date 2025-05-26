@@ -114,6 +114,7 @@ export const mockClosuresApi = {
         const updatedClosure: Closure = {
             ...existingClosure,
             ...data,
+            severity: data.severity as 'low' | 'medium' | 'high' | 'critical' | undefined,
             id: existingClosure.id, // Ensure ID doesn't change
             created_at: existingClosure.created_at, // Preserve creation time
             updated_at: getCurrentTimestamp(),
