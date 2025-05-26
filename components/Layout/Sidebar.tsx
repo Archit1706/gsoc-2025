@@ -1,3 +1,4 @@
+"use client"
 import React from 'react';
 import { Calendar, Clock, MapPin, User, AlertCircle } from 'lucide-react';
 import { format, isAfter, isBefore } from 'date-fns';

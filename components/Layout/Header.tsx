@@ -1,5 +1,5 @@
 import React from 'react';
-import { Road, AlertTriangle, Menu, X } from 'lucide-react';
+import { Construction, TriangleAlert, Menu, X } from 'lucide-react';
 
 interface HeaderProps {
     onToggleForm: () => void;
@@ -14,7 +14,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleForm, isFormOpen }) => {
                     {/* Logo and Title */}
                     <div className="flex items-center space-x-3">
                         <div className="flex items-center justify-center w-10 h-10 bg-blue-600 rounded-lg">
-                            <Road className="w-6 h-6 text-white" />
+                            <Construction className="w-6 h-6 text-white" />
                         </div>
                         <div>
                             <h1 className="text-xl font-bold text-gray-900">
@@ -31,7 +31,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleForm, isFormOpen }) => {
                         {/* Stats */}
                         <div className="hidden md:flex items-center space-x-6 text-sm text-gray-600">
                             <div className="flex items-center space-x-1">
-                                <AlertTriangle className="w-4 h-4 text-yellow-500" />
+                                <TriangleAlert className="w-4 h-4 text-yellow-500" />
                                 <span>Live Updates</span>
                             </div>
                         </div>
@@ -54,7 +54,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleForm, isFormOpen }) => {
                                 </>
                             ) : (
                                 <>
-                                    <AlertTriangle className="w-4 h-4" />
+                                    <TriangleAlert className="w-4 h-4" />
                                     <span>Report Closure</span>
                                 </>
                             )}

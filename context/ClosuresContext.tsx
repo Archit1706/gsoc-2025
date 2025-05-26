@@ -1,3 +1,4 @@
+"use client"
 import React, { createContext, useContext, useReducer, useCallback, ReactNode } from 'react';
 import { Closure, CreateClosureData, BoundingBox, closuresApi } from '@/services/api';
 import toast from 'react-hot-toast';

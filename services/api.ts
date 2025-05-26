@@ -37,6 +37,9 @@ export interface CreateClosureData {
     description: string;
     reason: string;
     submitter: string;
+    severity: string;
+    contact_info?: string;
+    alternative_routes?: string[];
 }
 
 export interface BoundingBox {

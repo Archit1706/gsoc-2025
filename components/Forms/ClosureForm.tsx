@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { Calendar, Clock, MapPin, User, AlertTriangle, X } from 'lucide-react';
-import { useClosures } from '../../context/ClosuresContext';
-import { CreateClosureData } from '../../services/api';
+import { Calendar, Clock, MapPin, User, TriangleAlert, X, Info, Phone, Route } from 'lucide-react';
+import { useClosures } from '@/context/ClosuresContext';
+import { CreateClosureData } from '@/services/api';
 import L from 'leaflet';
 
 interface ClosureFormProps {
@@ -15,21 +15,31 @@ interface ClosureFormProps {
 
 interface FormData {
     description: string;
-    reason: string;
+    reason: 'construction' | 'accident' | 'event' | 'maintenance' | 'weather' | 'emergency' | 'other';
     submitter: string;
     start_time: string;
     end_time: string;
     geometry_type: 'Point' | 'LineString';
+    severity: 'low' | 'medium' | 'high' | 'critical';
+    contact_info: string;
+    alternative_routes: string;
 }
 
 const CLOSURE_REASONS = [
-    { value: 'construction', label: 'Construction Work' },
-    { value: 'accident', label: 'Traffic Accident' },
-    { value: 'event', label: 'Public Event' },
-    { value: 'maintenance', label: 'Road Maintenance' },
-    { value: 'weather', label: 'Weather Conditions' },
-    { value: 'emergency', label: 'Emergency Services' },
-    { value: 'other', label: 'Other' },
+    { value: 'construction', label: 'Construction Work', icon: '🚧' },
+    { value: 'accident', label: 'Traffic Accident', icon: '💥' },
+    { value: 'event', label: 'Public Event', icon: '🎉' },
+    { value: 'maintenance', label: 'Road Maintenance', icon: '🔧' },
+    { value: 'weather', label: 'Weather Conditions', icon: '🌧️' },
+    { value: 'emergency', label: 'Emergency Services', icon: '🚨' },
+    { value: 'other', label: 'Other', icon: '❓' },
+];
+
+const SEVERITY_LEVELS = [
+    { value: 'low', label: 'Low', color: 'text-green-600', description: 'Minor disruption, alternative routes available' },
+    { value: 'medium', label: 'Medium', color: 'text-yellow-600', description: 'Moderate disruption, some delays expected' },
+    { value: 'high', label: 'High', color: 'text-orange-600', description: 'Major disruption, significant delays' },
+    { value: 'critical', label: 'Critical', color: 'text-red-600', description: 'Complete closure, no through traffic' },
 ];
 
 const ClosureForm: React.FC<ClosureFormProps> = ({
@@ -41,6 +51,8 @@ const ClosureForm: React.FC<ClosureFormProps> = ({
 }) => {
     const { createClosure, state } = useClosures();
     const { loading } = state;
+    const [currentStep, setCurrentStep] = useState(1);
+    const totalSteps = 3;
 
     const {
         register,
@@ -49,22 +61,47 @@ const ClosureForm: React.FC<ClosureFormProps> = ({
         reset,
         watch,
         setValue,
+        trigger,
     } = useForm<FormData>({
         defaultValues: {
             geometry_type: 'Point',
             start_time: new Date().toISOString().slice(0, 16),
-            end_time: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString().slice(0, 16), // 2 hours from now
+            end_time: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString().slice(0, 16),
+            severity: 'medium',
+            contact_info: '',
+            alternative_routes: '',
         },
     });
 
-    const geometryType = watch('geometry_type');
+    const watchedSeverity = watch('severity');
+    const watchedReason = watch('reason');
 
     // Reset form when closing
     useEffect(() => {
         if (!isOpen) {
             reset();
+            setCurrentStep(1);
         }
     }, [isOpen, reset]);
+
+    const nextStep = async () => {
+        const fieldsToValidate = currentStep === 1
+            ? ['description', 'reason', 'severity']
+            : currentStep === 2
+                ? ['start_time', 'end_time', 'submitter']
+                : [];
+
+        const isValid = await trigger(fieldsToValidate as any);
+        if (isValid && currentStep < totalSteps) {
+            setCurrentStep(currentStep + 1);
+        }
+    };
+
+    const prevStep = () => {
+        if (currentStep > 1) {
+            setCurrentStep(currentStep - 1);
+        }
+    };
 
     const onSubmit = async (data: FormData) => {
         if (!selectedLocation) {
@@ -78,6 +115,9 @@ const ClosureForm: React.FC<ClosureFormProps> = ({
             submitter: data.submitter,
             start_time: data.start_time,
             end_time: data.end_time,
+            severity: data.severity,
+            contact_info: data.contact_info || undefined,
+            alternative_routes: data.alternative_routes ? data.alternative_routes.split(',').map(r => r.trim()) : undefined,
             geometry: {
                 type: data.geometry_type,
                 coordinates: data.geometry_type === 'Point'
@@ -89,6 +129,7 @@ const ClosureForm: React.FC<ClosureFormProps> = ({
         try {
             await createClosure(closureData);
             reset();
+            setCurrentStep(1);
             onClose();
         } catch (error) {
             console.error('Error creating closure:', error);
@@ -97,52 +138,123 @@ const ClosureForm: React.FC<ClosureFormProps> = ({
 
     if (!isOpen) return null;
 
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop */}
-            <div
-                className="absolute inset-0 bg-black bg-opacity-50"
-                onClick={onClose}
-            />
+    const renderStepContent = () => {
+        switch (currentStep) {
+            case 1:
+                return (
+                    <>
+                        {/* Description */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700">
+                                Description *
+                            </label>
+                            <textarea
+                                {...register('description', {
+                                    required: 'Description is required',
+                                    minLength: { value: 10, message: 'Description must be at least 10 characters' }
+                                })}
+                                placeholder="Describe the road closure (e.g., Water main repair blocking northbound traffic)"
+                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                                rows={3}
+                            />
+                            {errors.description && (
+                                <p className="text-sm text-red-600">{errors.description.message}</p>
+                            )}
+                        </div>
 
-            {/* Form Modal */}
-            <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-hidden">
-                {/* Header */}
-                <div className="bg-blue-600 text-white p-4 flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                        <AlertTriangle className="w-5 h-5" />
-                        <h2 className="text-lg font-semibold">Report Road Closure</h2>
-                    </div>
-                    <button
-                        onClick={onClose}
-                        className="p-1 hover:bg-blue-700 rounded"
-                    >
-                        <X className="w-5 h-5" />
-                    </button>
-                </div>
+                        {/* Reason */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700">
+                                Reason *
+                            </label>
+                            <div className="grid grid-cols-2 gap-2">
+                                {CLOSURE_REASONS.map(reason => (
+                                    <label
+                                        key={reason.value}
+                                        className={`
+                                            flex items-center space-x-2 p-3 border rounded-lg cursor-pointer transition-colors
+                                            ${watchedReason === reason.value
+                                                ? 'border-blue-500 bg-blue-50'
+                                                : 'border-gray-300 hover:border-gray-400'
+                                            }
+                                        `}
+                                    >
+                                        <input
+                                            type="radio"
+                                            value={reason.value}
+                                            className="text-blue-600"
+                                            {...register('reason', { required: 'Please select a reason' })}
+                                        />
+                                        <span className="text-lg">{reason.icon}</span>
+                                        <span className="text-sm font-medium">{reason.label}</span>
+                                    </label>
+                                ))}
+                            </div>
+                            {errors.reason && (
+                                <p className="text-sm text-red-600">{errors.reason.message}</p>
+                            )}
+                        </div>
 
-                {/* Form Content */}
-                <div className="p-4 overflow-y-auto max-h-[calc(90vh-4rem)]">
-                    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+                        {/* Severity */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-700">
+                                Severity *
+                            </label>
+                            <div className="space-y-2">
+                                {SEVERITY_LEVELS.map(level => (
+                                    <label
+                                        key={level.value}
+                                        className={`
+                                            flex items-start space-x-3 p-3 border rounded-lg cursor-pointer transition-colors
+                                            ${watchedSeverity === level.value
+                                                ? 'border-blue-500 bg-blue-50'
+                                                : 'border-gray-300 hover:border-gray-400'
+                                            }
+                                        `}
+                                    >
+                                        <input
+                                            type="radio"
+                                            value={level.value}
+                                            className="mt-1 text-blue-600"
+                                            {...register('severity')}
+                                        />
+                                        <div className="flex-1">
+                                            <div className={`font-medium ${level.color}`}>
+                                                {level.label}
+                                            </div>
+                                            <div className="text-sm text-gray-600">
+                                                {level.description}
+                                            </div>
+                                        </div>
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+                    </>
+                );
+
+            case 2:
+                return (
+                    <>
                         {/* Location Selection */}
                         <div className="space-y-2">
                             <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
                                 <MapPin className="w-4 h-4" />
-                                <span>Location</span>
+                                <span>Location *</span>
                             </label>
 
                             <button
                                 type="button"
                                 onClick={onLocationSelect}
                                 className={`
-                  w-full p-3 border rounded-lg text-left transition-colors
-                  ${isSelectingLocation
+                                    w-full p-3 border rounded-lg text-left transition-colors
+                                    ${isSelectingLocation
                                         ? 'border-blue-500 bg-blue-50 text-blue-700'
                                         : selectedLocation
                                             ? 'border-green-500 bg-green-50 text-green-700'
                                             : 'border-gray-300 hover:border-gray-400'
                                     }
-                `}
+                                `}
                             >
                                 {isSelectingLocation ? (
                                     'Click on the map to select location...'
@@ -179,46 +291,6 @@ const ClosureForm: React.FC<ClosureFormProps> = ({
                                     <span className="text-sm">Road segment</span>
                                 </label>
                             </div>
-                        </div>
-
-                        {/* Description */}
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-gray-700">
-                                Description *
-                            </label>
-                            <textarea
-                                {...register('description', {
-                                    required: 'Description is required',
-                                    minLength: { value: 10, message: 'Description must be at least 10 characters' }
-                                })}
-                                placeholder="Describe the road closure (e.g., Water main repair blocking northbound traffic)"
-                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                                rows={3}
-                            />
-                            {errors.description && (
-                                <p className="text-sm text-red-600">{errors.description.message}</p>
-                            )}
-                        </div>
-
-                        {/* Reason */}
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-gray-700">
-                                Reason *
-                            </label>
-                            <select
-                                {...register('reason', { required: 'Please select a reason' })}
-                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            >
-                                <option value="">Select reason...</option>
-                                {CLOSURE_REASONS.map(reason => (
-                                    <option key={reason.value} value={reason.value}>
-                                        {reason.label}
-                                    </option>
-                                ))}
-                            </select>
-                            {errors.reason && (
-                                <p className="text-sm text-red-600">{errors.reason.message}</p>
-                            )}
                         </div>
 
                         {/* Time Range */}
@@ -278,36 +350,178 @@ const ClosureForm: React.FC<ClosureFormProps> = ({
                                 <p className="text-sm text-red-600">{errors.submitter.message}</p>
                             )}
                         </div>
+                    </>
+                );
 
-                        {/* Submit Button */}
-                        <div className="flex space-x-3 pt-4">
+            case 3:
+                return (
+                    <>
+                        {/* Contact Info */}
+                        <div className="space-y-2">
+                            <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
+                                <Phone className="w-4 h-4" />
+                                <span>Contact Information (Optional)</span>
+                            </label>
+                            <input
+                                type="text"
+                                {...register('contact_info')}
+                                placeholder="Phone number, email, or other contact details"
+                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            />
+                            <p className="text-xs text-gray-500">
+                                Provide contact information if others need to verify or get updates about this closure
+                            </p>
+                        </div>
+
+                        {/* Alternative Routes */}
+                        <div className="space-y-2">
+                            <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
+                                <Route className="w-4 h-4" />
+                                <span>Alternative Routes (Optional)</span>
+                            </label>
+                            <textarea
+                                {...register('alternative_routes')}
+                                placeholder="Suggest alternative routes (e.g., Use Main St instead of Oak Ave, Detour via Highway 101)"
+                                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                                rows={3}
+                            />
+                            <p className="text-xs text-gray-500">
+                                Separate multiple routes with commas
+                            </p>
+                        </div>
+
+                        {/* Summary */}
+                        <div className="bg-gray-50 p-4 rounded-lg">
+                            <h4 className="font-medium text-gray-900 mb-2">Summary</h4>
+                            <div className="text-sm text-gray-600 space-y-1">
+                                <p><strong>Type:</strong> {watchedReason && CLOSURE_REASONS.find(r => r.value === watchedReason)?.label}</p>
+                                <p><strong>Severity:</strong> {watchedSeverity && SEVERITY_LEVELS.find(s => s.value === watchedSeverity)?.label}</p>
+                                <p><strong>Location:</strong> {selectedLocation ? `${selectedLocation.lat.toFixed(4)}, ${selectedLocation.lng.toFixed(4)}` : 'Not selected'}</p>
+                            </div>
+                        </div>
+                    </>
+                );
+
+            default:
+                return null;
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <div
+                className="absolute inset-0 bg-black bg-opacity-50"
+                onClick={onClose}
+            />
+
+            {/* Form Modal */}
+            <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-hidden">
+                {/* Header */}
+                <div className="bg-blue-600 text-white p-4 flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                        <TriangleAlert className="w-5 h-5" />
+                        <h2 className="text-lg font-semibold">Report Road Closure</h2>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="p-1 hover:bg-blue-700 rounded"
+                    >
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+
+                {/* Progress Steps */}
+                <div className="px-4 py-3 border-b border-gray-200">
+                    <div className="flex items-center justify-between">
+                        {[1, 2, 3].map((step) => (
+                            <div key={step} className="flex items-center">
+                                <div className={`
+                                    w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium
+                                    ${step <= currentStep
+                                        ? 'bg-blue-600 text-white'
+                                        : 'bg-gray-200 text-gray-600'
+                                    }
+                                `}>
+                                    {step}
+                                </div>
+                                {step < 3 && (
+                                    <div className={`
+                                        w-16 h-1 mx-2
+                                        ${step < currentStep ? 'bg-blue-600' : 'bg-gray-200'}
+                                    `} />
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                    <div className="mt-2 text-sm text-gray-600">
+                        Step {currentStep} of {totalSteps}: {
+                            currentStep === 1 ? 'Closure Details' :
+                                currentStep === 2 ? 'Location & Timing' :
+                                    'Additional Information'
+                        }
+                    </div>
+                </div>
+
+                {/* Form Content */}
+                <form onSubmit={handleSubmit(onSubmit)}>
+                    <div className="p-4 overflow-y-auto max-h-[calc(90vh-12rem)] space-y-4">
+                        {renderStepContent()}
+                    </div>
+
+                    {/* Footer with Navigation */}
+                    <div className="flex items-center justify-between p-4 border-t border-gray-200 bg-gray-50">
+                        <div className="flex space-x-2">
+                            {currentStep > 1 && (
+                                <button
+                                    type="button"
+                                    onClick={prevStep}
+                                    className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium"
+                                >
+                                    Previous
+                                </button>
+                            )}
+                        </div>
+
+                        <div className="flex space-x-2">
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
+                                className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 font-medium"
                             >
                                 Cancel
                             </button>
-                            <button
-                                type="submit"
-                                disabled={loading || !selectedLocation}
-                                className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium flex items-center justify-center space-x-2"
-                            >
-                                {loading ? (
-                                    <>
-                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                        <span>Reporting...</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <AlertTriangle className="w-4 h-4" />
-                                        <span>Report Closure</span>
-                                    </>
-                                )}
-                            </button>
+
+                            {currentStep < totalSteps ? (
+                                <button
+                                    type="button"
+                                    onClick={nextStep}
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                                >
+                                    Next
+                                </button>
+                            ) : (
+                                <button
+                                    type="submit"
+                                    disabled={loading || !selectedLocation}
+                                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium flex items-center space-x-2"
+                                >
+                                    {loading ? (
+                                        <>
+                                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                            <span>Reporting...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <TriangleAlert className="w-4 h-4" />
+                                            <span>Report Closure</span>
+                                        </>
+                                    )}
+                                </button>
+                            )}
                         </div>
-                    </form>
-                </div>
+                    </div>
+                </form>
             </div>
         </div>
     );
