@@ -25,6 +25,7 @@ export interface Closure {
     created_at: string;
     updated_at: string;
     openlr?: string;
+    severity?: 'low' | 'medium' | 'high' | 'critical';
 }
 
 export interface CreateClosureData {
@@ -47,6 +48,18 @@ export interface BoundingBox {
     south: number;
     east: number;
     west: number;
+}
+
+export interface ClosureStats {
+    total: number;
+    active: number;
+    upcoming: number;
+    expired: number;
+    byReason: Record<string, number>;
+    bySeverity: Record<string, number>;
+    byTimeOfDay: Record<string, number>;
+    averageDuration: number;
+    totalDuration: number;
 }
 
 // API Functions
@@ -105,6 +118,17 @@ export const closuresApi = {
             await api.delete(`/closures/${id}`);
         } catch (error) {
             console.error('Error deleting closure:', error);
+            throw error;
+        }
+    },
+
+    // Get closure statistics
+    getClosureStats: async (): Promise<ClosureStats> => {
+        try {
+            const response = await api.get('/closures/stats');
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching closure stats:', error);
             throw error;
         }
     }
