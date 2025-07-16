@@ -28,33 +28,54 @@ A Next.js-based frontend application for the OpenStreetMap Temporary Road Closur
 ## Project Structure
 
 ```
+
 frontend/
 ├── app/                      # Next.js App Router directory
 │   ├── layout.tsx           # Root layout component
 │   ├── page.tsx             # Main page component
-│   └── globals.css          # Global styles and Tailwind imports
+│   ├── globals.css          # Global styles and Tailwind imports
+│   └── api/                 # API routes (optional, for proxy)
+│       ├── closures/
+│       │   └── route.ts
+│       └── hello/
+│           └── route.ts
 ├── components/              # React components
+│   ├── Auth/                # 🆕 Authentication components
+│   │   └── Login.tsx        # Login modal component
 │   ├── Layout/              # Layout components
-│   │   ├── Header.tsx       # Application header with navigation
-│   │   ├── Sidebar.tsx      # Closures list sidebar
+│   │   ├── Header.tsx       # Application header (🔄 updated)
+│   │   ├── Sidebar.tsx      # Closures list sidebar (🔄 updated)
 │   │   ├── Layout.tsx       # Main layout wrapper
-│   │   └── StatsDashboard.tsx # Statistics and analytics dashboard
+│   │   └── StatsDashboard.tsx # Statistics dashboard
 │   ├── Map/                 # Map-related components
-│   │   └── MapComponent.tsx # Interactive map with closures visualization
-│   └── Forms/               # Form components
-│       └── ClosureForm.tsx  # Multi-step road closure reporting form
+│   │   └── MapComponent.tsx # Interactive map (🔄 updated)
+│   ├── Forms/               # Form components
+│   │   └── ClosureForm.tsx  # Multi-step closure form (🔄 updated)
+│   └── Demo/                # Demo and development components
+│       └── DemoControlPanel.tsx # Development control panel (🔄 updated)
 ├── context/                 # React Context providers
-│   └── ClosuresContext.tsx  # Global state management for closures
+│   └── ClosuresContext.tsx  # Global state management (🔄 updated)
 ├── services/                # API and external services
-│   └── api.ts               # API client, types, and HTTP requests
+│   ├── api.ts               # API client and types (🔄 updated)
+│   └── mockApi.ts           # Mock API implementation
+├── data/                    # Static data and mock data
+│   └── mockClosures.ts      # Mock closure data
 ├── public/                  # Static assets and icons
+│   ├── file.svg
+│   ├── globe.svg
+│   ├── next.svg
+│   ├── vercel.svg
+│   └── window.svg
+├── .env.local               # 🆕 Environment variables (create this)
 ├── .gitignore               # Git ignore patterns
 ├── Dockerfile               # Container configuration (if available)
+├── README.md                # Project documentation (🔄 updated)
 ├── next.config.ts           # Next.js configuration
 ├── postcss.config.mjs       # PostCSS configuration for Tailwind
 ├── tailwind.config.js       # Tailwind CSS configuration (v4)
 ├── tsconfig.json            # TypeScript configuration
 └── package.json             # Dependencies and scripts
+
 ```
 
 ## Getting Started

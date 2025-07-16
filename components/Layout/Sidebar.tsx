@@ -1,6 +1,6 @@
 "use client"
 import React from 'react';
-import { Calendar, Clock, MapPin, User, AlertCircle } from 'lucide-react';
+import { Calendar, Clock, MapPin, User, AlertCircle, Zap, Building2 } from 'lucide-react';
 import { format, isAfter, isBefore } from 'date-fns';
 import { useClosures } from '@/context/ClosuresContext';
 import { Closure } from '@/services/api';
@@ -12,7 +12,7 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     const { state, selectClosure } = useClosures();
-    const { closures, selectedClosure, loading } = state;
+    const { closures, selectedClosure, loading, isAuthenticated } = state;
 
     const getClosureStatus = (closure: Closure): 'active' | 'upcoming' | 'expired' => {
         const now = new Date();
@@ -37,12 +37,29 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         }
     };
 
+    const getConfidenceColor = (level: number) => {
+        if (level >= 8) return 'text-green-600';
+        if (level >= 6) return 'text-blue-600';
+        if (level >= 4) return 'text-yellow-600';
+        return 'text-red-600';
+    };
+
+    const formatDuration = (hours: number) => {
+        if (hours < 1) return `${Math.round(hours * 60)}m`;
+        if (hours < 24) return `${Math.round(hours)}h`;
+        return `${Math.round(hours / 24)}d`;
+    };
+
     const handleClosureClick = (closure: Closure) => {
         selectClosure(closure);
         if (window.innerWidth < 768) {
             onClose();
         }
     };
+
+    const activeClosures = closures.filter(c => getClosureStatus(c) === 'active').length;
+    const upcomingClosures = closures.filter(c => getClosureStatus(c) === 'upcoming').length;
+    const expiredClosures = closures.filter(c => getClosureStatus(c) === 'expired').length;
 
     return (
         <>
@@ -56,20 +73,48 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
             {/* Sidebar */}
             <div className={`
-        fixed top-16 left-0 h-[calc(100vh-4rem)] w-80 bg-white shadow-lg transform transition-transform duration-300 ease-in-out z-50
-        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-        md:relative md:top-0 md:h-full md:translate-x-0 md:shadow-none md:border-r md:border-gray-200
-      `}>
+                fixed top-16 left-0 h-[calc(100vh-4rem)] w-80 bg-white shadow-lg transform transition-transform duration-300 ease-in-out z-50
+                ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+                md:relative md:top-0 md:h-full md:translate-x-0 md:shadow-none md:border-r md:border-gray-200
+            `}>
+                {/* Header */}
                 <div className="p-4 border-b border-gray-200">
                     <h2 className="text-lg font-semibold text-gray-900">
-                        Active Closures ({closures.length})
+                        Road Closures ({closures.length})
                     </h2>
                     <p className="text-sm text-gray-500 mt-1">
                         Click on a closure to view on map
                     </p>
+
+                    {/* Status Summary */}
+                    <div className="flex space-x-2 mt-3">
+                        <div className="flex-1 text-center p-2 bg-red-50 rounded-lg">
+                            <div className="text-sm font-semibold text-red-800">{activeClosures}</div>
+                            <div className="text-xs text-red-600">Active</div>
+                        </div>
+                        <div className="flex-1 text-center p-2 bg-yellow-50 rounded-lg">
+                            <div className="text-sm font-semibold text-yellow-800">{upcomingClosures}</div>
+                            <div className="text-xs text-yellow-600">Upcoming</div>
+                        </div>
+                        <div className="flex-1 text-center p-2 bg-gray-50 rounded-lg">
+                            <div className="text-sm font-semibold text-gray-800">{expiredClosures}</div>
+                            <div className="text-xs text-gray-600">Expired</div>
+                        </div>
+                    </div>
+
+                    {/* Authentication Status */}
+                    {!isAuthenticated && (
+                        <div className="mt-3 p-2 bg-orange-50 border border-orange-200 rounded-lg">
+                            <div className="flex items-center space-x-2">
+                                <AlertCircle className="w-4 h-4 text-orange-600" />
+                                <span className="text-sm text-orange-700">Demo Mode - Limited Features</span>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
-                <div className="flex-1 overflow-y-auto hide-scrollbar max-h-[calc(100vh-8rem)]">
+                {/* Closures List */}
+                <div className="flex-1 overflow-y-auto hide-scrollbar max-h-[calc(100vh-12rem)]">
                     {loading ? (
                         <div className="p-4 text-center">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
@@ -94,24 +139,32 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                                         key={closure.id}
                                         onClick={() => handleClosureClick(closure)}
                                         className={`
-                      p-3 mb-2 rounded-lg border cursor-pointer transition-colors
-                      ${isSelected
+                                            p-3 mb-2 rounded-lg border cursor-pointer transition-colors
+                                            ${isSelected
                                                 ? 'border-blue-500 bg-blue-50'
                                                 : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                                             }
-                    `}
+                                        `}
                                     >
-                                        {/* Status Badge */}
+                                        {/* Header with Status and Confidence */}
                                         <div className="flex items-center justify-between mb-2">
                                             <span className={`
-                        inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border
-                        ${getStatusColor(status)}
-                      `}>
+                                                inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border
+                                                ${getStatusColor(status)}
+                                            `}>
                                                 {status.charAt(0).toUpperCase() + status.slice(1)}
                                             </span>
-                                            <span className="text-xs text-gray-400">
-                                                {format(new Date(closure.created_at), 'MMM dd')}
-                                            </span>
+                                            <div className="flex items-center space-x-2">
+                                                <div className="flex items-center space-x-1">
+                                                    <Zap className="w-3 h-3 text-gray-400" />
+                                                    <span className={`text-xs font-medium ${getConfidenceColor(closure.confidence_level)}`}>
+                                                        {closure.confidence_level}/10
+                                                    </span>
+                                                </div>
+                                                <span className="text-xs text-gray-400">
+                                                    {formatDuration(closure.duration_hours)}
+                                                </span>
+                                            </div>
                                         </div>
 
                                         {/* Description */}
@@ -119,12 +172,15 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                                             {closure.description}
                                         </h3>
 
-                                        {/* Reason */}
-                                        <p className="text-sm text-gray-600 mb-3 capitalize">
-                                            {closure.reason.replace('_', ' ')}
-                                        </p>
+                                        {/* Closure Type */}
+                                        <div className="flex items-center space-x-1 mb-2">
+                                            <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                                            <span className="text-sm text-gray-600 capitalize">
+                                                {closure.closure_type.replace('_', ' ')}
+                                            </span>
+                                        </div>
 
-                                        {/* Details */}
+                                        {/* Timing */}
                                         <div className="space-y-1 text-xs text-gray-500">
                                             <div className="flex items-center space-x-1">
                                                 <Calendar className="w-3 h-3" />
@@ -135,15 +191,43 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                                             </div>
 
                                             <div className="flex items-center space-x-1">
-                                                <User className="w-3 h-3" />
-                                                <span>Reported by {closure.submitter}</span>
+                                                <Building2 className="w-3 h-3" />
+                                                <span>Source: {closure.source}</span>
                                             </div>
+
+                                            {closure.openlr_code && (
+                                                <div className="flex items-center space-x-1">
+                                                    <MapPin className="w-3 h-3" />
+                                                    <span className="font-mono text-xs">
+                                                        OpenLR: {closure.openlr_code.substring(0, 8)}...
+                                                    </span>
+                                                </div>
+                                            )}
                                         </div>
+
+                                        {/* Validation Status */}
+                                        {!closure.is_valid && (
+                                            <div className="mt-2 flex items-center space-x-1">
+                                                <AlertCircle className="w-3 h-3 text-yellow-500" />
+                                                <span className="text-xs text-yellow-600">Needs validation</span>
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })}
                         </div>
                     )}
+                </div>
+
+                {/* Footer */}
+                <div className="p-3 border-t border-gray-200 bg-gray-50">
+                    <div className="text-xs text-gray-500 text-center">
+                        {isAuthenticated ? (
+                            <span>✓ Connected to backend API</span>
+                        ) : (
+                            <span>⚠ Using demo data</span>
+                        )}
+                    </div>
                 </div>
             </div>
         </>

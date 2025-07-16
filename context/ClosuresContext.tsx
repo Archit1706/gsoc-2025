@@ -1,6 +1,6 @@
 "use client"
 import React, { createContext, useContext, useReducer, useCallback, ReactNode } from 'react';
-import { Closure, CreateClosureData, BoundingBox, closuresApi } from '@/services/api';
+import { Closure, CreateClosureData, BoundingBox, closuresApi, authApi } from '@/services/api';
 import toast from 'react-hot-toast';
 
 // State interface
@@ -9,6 +9,8 @@ interface ClosuresState {
     loading: boolean;
     error: string | null;
     selectedClosure: Closure | null;
+    isAuthenticated: boolean;
+    user: any | null; // User data from login response
 }
 
 // Action types
@@ -17,18 +19,23 @@ type ClosuresAction =
     | { type: 'SET_CLOSURES'; payload: Closure[] }
     | { type: 'ADD_CLOSURE'; payload: Closure }
     | { type: 'UPDATE_CLOSURE'; payload: Closure }
-    | { type: 'DELETE_CLOSURE'; payload: string }
+    | { type: 'DELETE_CLOSURE'; payload: number }
     | { type: 'SET_SELECTED_CLOSURE'; payload: Closure | null }
-    | { type: 'SET_ERROR'; payload: string | null };
+    | { type: 'SET_ERROR'; payload: string | null }
+    | { type: 'SET_AUTHENTICATED'; payload: boolean }
+    | { type: 'SET_USER'; payload: any | null };
 
 // Context interface
 interface ClosuresContextType {
     state: ClosuresState;
     fetchClosures: (bbox?: BoundingBox) => Promise<void>;
     createClosure: (data: CreateClosureData) => Promise<void>;
-    updateClosure: (id: string, data: Partial<CreateClosureData>) => Promise<void>;
-    deleteClosure: (id: string) => Promise<void>;
+    updateClosure: (id: number, data: Partial<CreateClosureData>) => Promise<void>;
+    deleteClosure: (id: number) => Promise<void>;
     selectClosure: (closure: Closure | null) => void;
+    login: (username: string, password: string) => Promise<void>;
+    logout: () => void;
+    checkAuthStatus: () => boolean;
 }
 
 // Initial state
@@ -37,6 +44,8 @@ const initialState: ClosuresState = {
     loading: false,
     error: null,
     selectedClosure: null,
+    isAuthenticated: false, // Will be set properly on client-side
+    user: null,
 };
 
 // Reducer
@@ -51,7 +60,7 @@ const closuresReducer = (state: ClosuresState, action: ClosuresAction): Closures
         case 'ADD_CLOSURE':
             return {
                 ...state,
-                closures: [...state.closures, action.payload],
+                closures: [action.payload, ...state.closures],
                 loading: false,
                 error: null
             };
@@ -86,6 +95,12 @@ const closuresReducer = (state: ClosuresState, action: ClosuresAction): Closures
         case 'SET_ERROR':
             return { ...state, error: action.payload, loading: false };
 
+        case 'SET_AUTHENTICATED':
+            return { ...state, isAuthenticated: action.payload };
+
+        case 'SET_USER':
+            return { ...state, user: action.payload };
+
         default:
             return state;
     }
@@ -102,6 +117,50 @@ interface ClosuresProviderProps {
 export const ClosuresProvider: React.FC<ClosuresProviderProps> = ({ children }) => {
     const [state, dispatch] = useReducer(closuresReducer, initialState);
 
+    // Check authentication status on mount (client-side only)
+    React.useEffect(() => {
+        const hasToken = !!authApi.getToken();
+        const userData = authApi.getUserData();
+        dispatch({ type: 'SET_AUTHENTICATED', payload: hasToken });
+        dispatch({ type: 'SET_USER', payload: userData });
+    }, []);
+
+    const checkAuthStatus = useCallback((): boolean => {
+        const hasToken = !!authApi.getToken();
+        const userData = authApi.getUserData();
+        dispatch({ type: 'SET_AUTHENTICATED', payload: hasToken });
+        dispatch({ type: 'SET_USER', payload: userData });
+        return hasToken;
+    }, []);
+
+    const login = useCallback(async (username: string, password: string) => {
+        dispatch({ type: 'SET_LOADING', payload: true });
+        try {
+            const response = await authApi.login(username, password);
+            authApi.setToken(response.access_token);
+            authApi.setUserData(response.user);
+            dispatch({ type: 'SET_AUTHENTICATED', payload: true });
+            dispatch({ type: 'SET_USER', payload: response.user });
+            dispatch({ type: 'SET_LOADING', payload: false });
+            toast.success(`Welcome back, ${response.user.full_name}!`);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Login failed';
+            dispatch({ type: 'SET_ERROR', payload: errorMessage });
+            dispatch({ type: 'SET_AUTHENTICATED', payload: false });
+            dispatch({ type: 'SET_USER', payload: null });
+            toast.error(errorMessage);
+        }
+    }, []);
+
+    const logout = useCallback(() => {
+        authApi.clearToken();
+        dispatch({ type: 'SET_AUTHENTICATED', payload: false });
+        dispatch({ type: 'SET_USER', payload: null });
+        dispatch({ type: 'SET_CLOSURES', payload: [] });
+        dispatch({ type: 'SET_SELECTED_CLOSURE', payload: null });
+        toast.success('Logged out successfully');
+    }, []);
+
     const fetchClosures = useCallback(async (bbox?: BoundingBox) => {
         dispatch({ type: 'SET_LOADING', payload: true });
         try {
@@ -110,7 +169,13 @@ export const ClosuresProvider: React.FC<ClosuresProviderProps> = ({ children }) 
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Failed to fetch closures';
             dispatch({ type: 'SET_ERROR', payload: errorMessage });
-            toast.error(errorMessage);
+
+            // Show different messages based on authentication status
+            if (!authApi.getToken()) {
+                toast.error('Authentication required. Using demo data.');
+            } else {
+                toast.error(errorMessage);
+            }
         }
     }, []);
 
@@ -123,11 +188,19 @@ export const ClosuresProvider: React.FC<ClosuresProviderProps> = ({ children }) 
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Failed to create closure';
             dispatch({ type: 'SET_ERROR', payload: errorMessage });
-            toast.error(errorMessage);
+
+            // Provide more specific error messages
+            if (error instanceof Error && error.message.includes('401')) {
+                toast.error('Authentication required to create closures');
+            } else if (error instanceof Error && error.message.includes('validation')) {
+                toast.error('Please check your input data');
+            } else {
+                toast.error(errorMessage);
+            }
         }
     }, []);
 
-    const updateClosure = useCallback(async (id: string, data: Partial<CreateClosureData>) => {
+    const updateClosure = useCallback(async (id: number, data: Partial<CreateClosureData>) => {
         dispatch({ type: 'SET_LOADING', payload: true });
         try {
             const updatedClosure = await closuresApi.updateClosure(id, data);
@@ -140,7 +213,7 @@ export const ClosuresProvider: React.FC<ClosuresProviderProps> = ({ children }) 
         }
     }, []);
 
-    const deleteClosure = useCallback(async (id: string) => {
+    const deleteClosure = useCallback(async (id: number) => {
         dispatch({ type: 'SET_LOADING', payload: true });
         try {
             await closuresApi.deleteClosure(id);
@@ -164,6 +237,9 @@ export const ClosuresProvider: React.FC<ClosuresProviderProps> = ({ children }) 
         updateClosure,
         deleteClosure,
         selectClosure,
+        login,
+        logout,
+        checkAuthStatus,
     };
 
     return (

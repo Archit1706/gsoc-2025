@@ -13,7 +13,7 @@ const nextConfig = {
   },
 
   // Webpack configuration for Leaflet
-  webpack: (config, { isServer }) => {
+  webpack: (config: { resolve: { fallback: any; }; }, { isServer }: any) => {
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
