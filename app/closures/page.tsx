@@ -7,7 +7,7 @@ import { ClosuresProvider, useClosures } from '@/context/ClosuresContext';
 import Layout from '@/components/Layout/Layout';
 import ClosureForm from '@/components/Forms/ClosureForm';
 import ClientOnly from '@/components/ClientOnly';
-import { LogIn, Info } from 'lucide-react';
+import { LogIn, Info, MapPin } from 'lucide-react';
 import L from 'leaflet';
 
 // Dynamically import MapComponent to avoid SSR issues
@@ -59,6 +59,53 @@ const AuthNotice: React.FC = () => {
               Login in Header
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Point Selection Instructions Component
+const PointSelectionInstructions: React.FC<{
+  isSelecting: boolean;
+  pointCount: number;
+  onClear: () => void;
+  onFinish: () => void;
+}> = ({ isSelecting, pointCount, onClear, onFinish }) => {
+  if (!isSelecting) return null;
+
+  return (
+    <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-30 bg-white rounded-lg shadow-lg border border-gray-200 p-4 max-w-md">
+      <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-2">
+          <div className="w-3 h-3 bg-blue-600 rounded-full animate-pulse"></div>
+          <span className="font-medium text-gray-900">Selecting Points ({pointCount})</span>
+        </div>
+        <div className="text-sm text-gray-600">
+          Click on the map to add points along the road segment
+        </div>
+      </div>
+      <div className="flex items-center justify-between mt-3">
+        <div className="text-xs text-gray-500">
+          {pointCount === 0 && "Click on the map to start"}
+          {pointCount === 1 && "Add at least one more point for LineString"}
+          {pointCount >= 2 && "✓ Ready for LineString"}
+        </div>
+        <div className="flex space-x-2">
+          {pointCount > 0 && (
+            <button
+              onClick={onClear}
+              className="bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded text-sm"
+            >
+              Clear ({pointCount})
+            </button>
+          )}
+          <button
+            onClick={onFinish}
+            className="bg-blue-600 text-white hover:bg-blue-700 px-3 py-1 rounded text-sm font-medium"
+          >
+            Done
+          </button>
         </div>
       </div>
     </div>
@@ -131,6 +178,7 @@ function ClosuresPageContent() {
           onFinishSelection={handleFinishSelection}
         />
 
+        {/* Form Sidebar */}
         <ClosureForm
           isOpen={isFormOpen}
           onClose={handleToggleForm}
@@ -143,42 +191,34 @@ function ClosuresPageContent() {
       {/* Auth Notice for non-authenticated users */}
       <AuthNotice />
 
+      {/* Point Selection Instructions */}
+      <PointSelectionInstructions
+        isSelecting={isSelectingPoints}
+        pointCount={selectedPoints.length}
+        onClear={handleClearPoints}
+        onFinish={handleFinishSelection}
+      />
+
       {/* Demo Control Panel - Client-side only */}
       <ClientOnly>
         <DemoControlPanel />
       </ClientOnly>
 
-      {/* Point Selection Instructions - only show when form is not open */}
-      {isSelectingPoints && !isFormOpen && (
-        <div className="fixed top-20 left-1/2 transform -translate-x-1/2 z-40 bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg">
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 bg-white rounded-full animate-pulse"></div>
-              <span className="font-medium">Selecting Points ({selectedPoints.length})</span>
-            </div>
-            <div className="text-sm opacity-90">
-              Click on the map to add points along the road segment
-            </div>
-            <div className="flex space-x-2">
-              {selectedPoints.length > 0 && (
-                <button
-                  onClick={handleClearPoints}
-                  className="bg-blue-700 hover:bg-blue-800 px-3 py-1 rounded text-sm"
-                >
-                  Clear ({selectedPoints.length})
-                </button>
-              )}
-              <button
-                onClick={handleFinishSelection}
-                className="bg-white text-blue-600 hover:bg-gray-100 px-3 py-1 rounded text-sm font-medium"
-              >
-                Done
-              </button>
-            </div>
+      {/* Point Selection Status - Fixed position when form is open */}
+      {isSelectingPoints && isFormOpen && (
+        <div className="fixed top-20 right-[25rem] z-40 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg">
+          <div className="flex items-center space-x-2">
+            <MapPin className="w-4 h-4" />
+            <span className="text-sm font-medium">
+              {selectedPoints.length === 0 ? 'Click on map to add points' :
+                selectedPoints.length === 1 ? '1 point selected - add more' :
+                  `${selectedPoints.length} points selected`}
+            </span>
           </div>
         </div>
       )}
 
+      {/* Notifications */}
       <Toaster
         position="top-right"
         toastOptions={{
