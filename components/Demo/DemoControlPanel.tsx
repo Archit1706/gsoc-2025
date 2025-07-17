@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect } from 'react';
 import { Database, Wifi, WifiOff, RotateCcw, Info, LogIn, Shield, AlertTriangle } from 'lucide-react';
 import { closuresApi, authApi } from '@/services/api';

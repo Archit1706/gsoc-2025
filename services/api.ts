@@ -91,7 +91,6 @@ export interface PaginatedResponse<T> {
 // Check if we're in the browser
 const isBrowser = typeof window !== 'undefined';
 
-// Updated types to match your backend response
 interface LoginResponse {
     access_token: string;
     token_type: string;
@@ -109,8 +108,42 @@ interface LoginResponse {
     };
 }
 
+interface RegisterRequest {
+    email: string;
+    full_name: string;
+    password: string;
+    username: string;
+}
+
+interface RegisterResponse {
+    username: string;
+    email: string;
+    full_name: string;
+    id: number;
+    is_active: boolean;
+    is_moderator: boolean;
+    is_verified: boolean;
+    last_login_at: string;
+    created_at: string;
+}
+
 // Authentication functions
 export const authApi = {
+    register: async (userData: RegisterRequest): Promise<RegisterResponse> => {
+        try {
+            const response = await api.post('/api/v1/auth/register', userData, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Registration error:', error);
+            throw error;
+        }
+    },
+
     login: async (username: string, password: string): Promise<LoginResponse> => {
         try {
             // Create form data for OAuth2 login

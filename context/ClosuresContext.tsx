@@ -26,6 +26,7 @@ type ClosuresAction =
     | { type: 'SET_USER'; payload: any | null };
 
 // Context interface
+// Context interface
 interface ClosuresContextType {
     state: ClosuresState;
     fetchClosures: (bbox?: BoundingBox) => Promise<void>;
@@ -34,6 +35,7 @@ interface ClosuresContextType {
     deleteClosure: (id: number) => Promise<void>;
     selectClosure: (closure: Closure | null) => void;
     login: (username: string, password: string) => Promise<void>;
+    register: (userData: { username: string; email: string; full_name: string; password: string }) => Promise<void>;
     logout: () => void;
     checkAuthStatus: () => boolean;
 }
@@ -152,6 +154,31 @@ export const ClosuresProvider: React.FC<ClosuresProviderProps> = ({ children }) 
         }
     }, []);
 
+    const register = useCallback(async (userData: { username: string; email: string; full_name: string; password: string }) => {
+        dispatch({ type: 'SET_LOADING', payload: true });
+        try {
+            const response = await authApi.register(userData);
+            dispatch({ type: 'SET_LOADING', payload: false });
+            toast.success(`Account created successfully! Welcome, ${response.full_name}!`);
+            // Note: Registration doesn't return a token, so we don't set authentication here
+            // The calling component should handle login after successful registration
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Registration failed';
+            dispatch({ type: 'SET_ERROR', payload: errorMessage });
+            dispatch({ type: 'SET_LOADING', payload: false });
+
+            // Provide more specific error messages for registration
+            if (error instanceof Error && error.message.includes('409')) {
+                toast.error('Username or email already exists');
+            } else if (error instanceof Error && error.message.includes('validation')) {
+                toast.error('Please check your input data');
+            } else {
+                toast.error(errorMessage);
+            }
+            throw error; // Re-throw so the calling component can handle it
+        }
+    }, []);
+
     const logout = useCallback(() => {
         authApi.clearToken();
         dispatch({ type: 'SET_AUTHENTICATED', payload: false });
@@ -238,6 +265,7 @@ export const ClosuresProvider: React.FC<ClosuresProviderProps> = ({ children }) 
         deleteClosure,
         selectClosure,
         login,
+        register,
         logout,
         checkAuthStatus,
     };
