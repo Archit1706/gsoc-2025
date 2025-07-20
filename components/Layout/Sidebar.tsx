@@ -1,9 +1,9 @@
 "use client"
 import React from 'react';
-import { Calendar, Clock, MapPin, User, AlertCircle, Zap, Building2 } from 'lucide-react';
+import { Calendar, Clock, MapPin, User, AlertCircle, Zap, Building2, Navigation, ArrowLeftRight } from 'lucide-react';
 import { format, isAfter, isBefore } from 'date-fns';
 import { useClosures } from '@/context/ClosuresContext';
-import { Closure } from '@/services/api';
+import { Closure, getDirectionArrow, calculateBearing } from '@/services/api';
 
 interface SidebarProps {
     isOpen: boolean;
@@ -50,6 +50,32 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         return `${Math.round(hours / 24)}d`;
     };
 
+    // Get direction information for LineString closures
+    const getDirectionInfo = (closure: Closure) => {
+        if (closure.geometry.type !== 'LineString' || closure.geometry.coordinates.length < 2) {
+            return null;
+        }
+
+        const coordinates = closure.geometry.coordinates;
+        const [lng1, lat1] = coordinates[0];
+        const [lng2, lat2] = coordinates[coordinates.length - 1];
+        const bearing = calculateBearing(lat1, lng1, lat2, lng2);
+
+        return {
+            bearing,
+            arrow: closure.is_bidirectional ? '⟷' : getDirectionArrow(bearing),
+            description: closure.is_bidirectional
+                ? 'Bidirectional'
+                : `${Math.round(bearing)}° ${getCompassDirection(bearing)}`
+        };
+    };
+
+    const getCompassDirection = (bearing: number): string => {
+        const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+        const index = Math.round(bearing / 45) % 8;
+        return directions[index];
+    };
+
     const handleClosureClick = (closure: Closure) => {
         selectClosure(closure);
         if (window.innerWidth < 768) {
@@ -60,6 +86,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     const activeClosures = closures.filter(c => getClosureStatus(c) === 'active').length;
     const upcomingClosures = closures.filter(c => getClosureStatus(c) === 'upcoming').length;
     const expiredClosures = closures.filter(c => getClosureStatus(c) === 'expired').length;
+
+    // Direction statistics
+    const lineStringClosures = closures.filter(c => c.geometry.type === 'LineString');
+    const bidirectionalClosures = lineStringClosures.filter(c => c.is_bidirectional).length;
+    const unidirectionalClosures = lineStringClosures.filter(c => !c.is_bidirectional).length;
 
     return (
         <>
@@ -102,6 +133,26 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                         </div>
                     </div>
 
+                    {/* Direction Summary - Only show if there are LineString closures */}
+                    {lineStringClosures.length > 0 && (
+                        <div className="flex space-x-2 mt-2">
+                            <div className="flex-1 text-center p-2 bg-blue-50 rounded-lg">
+                                <div className="text-sm font-semibold text-blue-800 flex items-center justify-center space-x-1">
+                                    <span>{bidirectionalClosures}</span>
+                                    <ArrowLeftRight className="w-3 h-3" />
+                                </div>
+                                <div className="text-xs text-blue-600">Bidirectional</div>
+                            </div>
+                            <div className="flex-1 text-center p-2 bg-green-50 rounded-lg">
+                                <div className="text-sm font-semibold text-green-800 flex items-center justify-center space-x-1">
+                                    <span>{unidirectionalClosures}</span>
+                                    <Navigation className="w-3 h-3" />
+                                </div>
+                                <div className="text-xs text-green-600">Unidirectional</div>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Authentication Status */}
                     {!isAuthenticated && (
                         <div className="mt-3 p-2 bg-orange-50 border border-orange-200 rounded-lg">
@@ -114,7 +165,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 </div>
 
                 {/* Closures List */}
-                <div className="flex-1 overflow-y-auto hide-scrollbar max-h-[calc(100vh-12rem)]">
+                <div className="flex-1 overflow-y-auto hide-scrollbar max-h-[calc(100vh-16rem)]">
                     {loading ? (
                         <div className="p-4 text-center">
                             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
@@ -133,6 +184,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                             {closures.map((closure) => {
                                 const status = getClosureStatus(closure);
                                 const isSelected = selectedClosure?.id === closure.id;
+                                const directionInfo = getDirectionInfo(closure);
 
                                 return (
                                     <div
@@ -172,13 +224,39 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                                             {closure.description}
                                         </h3>
 
-                                        {/* Closure Type */}
-                                        <div className="flex items-center space-x-1 mb-2">
-                                            <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                                            <span className="text-sm text-gray-600 capitalize">
-                                                {closure.closure_type.replace('_', ' ')}
-                                            </span>
+                                        {/* Closure Type and Direction */}
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center space-x-1">
+                                                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                                                <span className="text-sm text-gray-600 capitalize">
+                                                    {closure.closure_type.replace('_', ' ')}
+                                                </span>
+                                            </div>
+
+                                            {/* Direction Indicator */}
+                                            {directionInfo && (
+                                                <div className="flex items-center space-x-1">
+                                                    <span className="text-lg text-gray-600" title={directionInfo.description}>
+                                                        {directionInfo.arrow}
+                                                    </span>
+                                                    <span className="text-xs text-gray-500">
+                                                        {closure.is_bidirectional ? 'Both' : 'One-way'}
+                                                    </span>
+                                                </div>
+                                            )}
                                         </div>
+
+                                        {/* Direction Details for LineString */}
+                                        {directionInfo && !closure.is_bidirectional && (
+                                            <div className="mb-2 p-2 bg-gray-50 rounded text-xs">
+                                                <div className="flex items-center space-x-2">
+                                                    <Navigation className="w-3 h-3 text-gray-500" />
+                                                    <span className="text-gray-600">
+                                                        Direction: {directionInfo.description}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        )}
 
                                         {/* Timing */}
                                         <div className="space-y-1 text-xs text-gray-500">
@@ -221,11 +299,25 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
                 {/* Footer */}
                 <div className="p-3 border-t border-gray-200 bg-gray-50">
-                    <div className="text-xs text-gray-500 text-center">
-                        {isAuthenticated ? (
-                            <span>✓ Connected to backend API</span>
-                        ) : (
-                            <span>⚠ Using demo data</span>
+                    <div className="text-xs text-gray-500 text-center space-y-1">
+                        <div>
+                            {isAuthenticated ? (
+                                <span>✓ Connected to backend API</span>
+                            ) : (
+                                <span>⚠ Using demo data</span>
+                            )}
+                        </div>
+                        {lineStringClosures.length > 0 && (
+                            <div className="flex items-center justify-center space-x-4 text-xs">
+                                <span className="flex items-center space-x-1">
+                                    <span>⟷</span>
+                                    <span>{bidirectionalClosures} bidirectional</span>
+                                </span>
+                                <span className="flex items-center space-x-1">
+                                    <span>→</span>
+                                    <span>{unidirectionalClosures} unidirectional</span>
+                                </span>
+                            </div>
                         )}
                     </div>
                 </div>

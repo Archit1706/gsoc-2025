@@ -4,7 +4,8 @@ import { MapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useClosures } from '@/context/ClosuresContext';
-import { Closure, BoundingBox } from '@/services/api';
+import { Closure, BoundingBox, calculateBearing, getDirectionArrow, interpolateLinePoints } from '@/services/api';
+import { Navigation, ArrowLeftRight, Info, ChevronDown, ChevronUp } from 'lucide-react';
 
 // Fix for default markers in react-leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -87,6 +88,160 @@ function extractCoordinates(closure: Closure): { points: [number, number][], isV
     }
 }
 
+// Create custom arrow icon based on bearing
+function createArrowIcon(bearing: number, isBidirectional: boolean = false, color: string = '#ef4444'): L.DivIcon {
+    const arrow = isBidirectional ? '⟷' : getDirectionArrow(bearing);
+    const rotation = isBidirectional ? 0 : bearing;
+
+    return L.divIcon({
+        className: 'custom-arrow-icon',
+        html: `
+            <div class="arrow-container" style="transform: rotate(${rotation}deg);">
+                <div class="arrow-marker" style="color: ${color}; background: white; border: 2px solid ${color};">
+                    ${arrow}
+                </div>
+            </div>
+        `,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+    });
+}
+
+// Create direction arrows for LineString
+function createDirectionArrows(closure: Closure, coordinates: [number, number][]): L.Marker[] {
+    const arrows: L.Marker[] = [];
+
+    if (coordinates.length < 2) return arrows;
+
+    const color = getClosureColor(closure);
+    const isBidirectional = closure.is_bidirectional || false;
+
+    // Convert coordinates back to lng/lat for interpolation
+    const lngLatCoords = coordinates.map(([lat, lng]) => [lng, lat]);
+
+    // Get interpolated points for arrow placement (3-5 arrows depending on line length)
+    const numArrows = Math.min(5, Math.max(3, Math.floor(coordinates.length / 2)));
+    const arrowPoints = interpolateLinePoints(lngLatCoords, numArrows);
+
+    arrowPoints.forEach((point, index) => {
+        const [lng, lat] = point;
+
+        // Calculate bearing for this segment
+        let bearing = 0;
+        if (index < lngLatCoords.length - 1) {
+            const nextIndex = Math.min(index + 1, lngLatCoords.length - 1);
+            const [lng1, lat1] = lngLatCoords[index] || point;
+            const [lng2, lat2] = lngLatCoords[nextIndex] || point;
+            bearing = calculateBearing(lat1, lng1, lat2, lng2);
+        } else if (lngLatCoords.length >= 2) {
+            // Use bearing from previous segment for last arrow
+            const [lng1, lat1] = lngLatCoords[lngLatCoords.length - 2];
+            const [lng2, lat2] = lngLatCoords[lngLatCoords.length - 1];
+            bearing = calculateBearing(lat1, lng1, lat2, lng2);
+        }
+
+        const arrowIcon = createArrowIcon(bearing, isBidirectional, color);
+        const marker = L.marker([lat, lng], { icon: arrowIcon });
+
+        // Add tooltip with direction info
+        const directionText = isBidirectional
+            ? 'Bidirectional closure'
+            : `Direction: ${Math.round(bearing)}° (${getCompassDirection(bearing)})`;
+
+        marker.bindTooltip(directionText, {
+            permanent: false,
+            direction: 'top',
+            className: 'arrow-tooltip'
+        });
+
+        arrows.push(marker);
+    });
+
+    return arrows;
+}
+
+// Direction Legend Component
+const DirectionLegend: React.FC<{ className?: string }> = ({ className = '' }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+
+    const directionExamples = [
+        { bearing: 0, arrow: '↑', label: 'North' },
+        { bearing: 45, arrow: '↗', label: 'NE' },
+        { bearing: 90, arrow: '→', label: 'East' },
+        { bearing: 135, arrow: '↘', label: 'SE' },
+        { bearing: 180, arrow: '↓', label: 'South' },
+        { bearing: 225, arrow: '↙', label: 'SW' },
+        { bearing: 270, arrow: '←', label: 'West' },
+        { bearing: 315, arrow: '↖', label: 'NW' },
+    ];
+
+    return (
+        <div className={`bg-white rounded-lg shadow-lg border border-gray-200 ${className}`}>
+            <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="w-full flex items-center justify-between p-3 hover:bg-gray-50 transition-colors"
+            >
+                <div className="flex items-center space-x-2">
+                    <Navigation className="w-4 h-4 text-blue-600" />
+                    <span className="text-sm font-medium text-gray-900">Directions</span>
+                </div>
+                {isExpanded ? (
+                    <ChevronUp className="w-4 h-4 text-gray-500" />
+                ) : (
+                    <ChevronDown className="w-4 h-4 text-gray-500" />
+                )}
+            </button>
+
+            {isExpanded && (
+                <div className="px-3 pb-3 border-t border-gray-100">
+                    <div className="mb-3">
+                        <div className="flex items-center space-x-2 mb-2">
+                            <ArrowLeftRight className="w-4 h-4 text-purple-600" />
+                            <span className="text-sm font-medium">Bidirectional</span>
+                        </div>
+                        <div className="bg-purple-50 rounded p-2 flex items-center space-x-2">
+                            <span className="text-xl text-purple-600">⟷</span>
+                            <span className="text-xs text-purple-700">Both directions blocked</span>
+                        </div>
+                    </div>
+
+                    <div className="mb-3">
+                        <div className="flex items-center space-x-2 mb-2">
+                            <Navigation className="w-4 h-4 text-blue-600" />
+                            <span className="text-sm font-medium">Unidirectional</span>
+                        </div>
+                        <div className="grid grid-cols-4 gap-1">
+                            {directionExamples.map((example) => (
+                                <div key={example.bearing} className="bg-gray-50 rounded p-1 text-center">
+                                    <div className="text-sm text-gray-700">{example.arrow}</div>
+                                    <div className="text-xs text-gray-600">{example.label}</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="bg-blue-50 border border-blue-200 rounded p-2">
+                        <div className="flex items-start space-x-2">
+                            <Info className="w-3 h-3 text-blue-600 mt-0.5 flex-shrink-0" />
+                            <div className="text-xs text-blue-700">
+                                <div className="font-medium mb-1">Usage</div>
+                                <div>Direction is determined by the order you select points on the map.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// Get compass direction from bearing
+function getCompassDirection(bearing: number): string {
+    const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+    const index = Math.round(bearing / 45) % 8;
+    return directions[index];
+}
+
 // Component to handle map events and render closures
 const MapEventHandler: React.FC<{
     onMapClick?: (latlng: L.LatLng) => void;
@@ -150,6 +305,12 @@ const MapEventHandler: React.FC<{
                 });
 
                 layerGroup.addLayer(polyline);
+
+                // Add preview arrows for selection
+                if (selectedPoints.length >= 2) {
+                    const previewArrows = createPreviewArrows(selectedPoints);
+                    previewArrows.forEach(arrow => layerGroup.addLayer(arrow));
+                }
             }
         }
 
@@ -198,6 +359,15 @@ const MapEventHandler: React.FC<{
                     weight: 6,
                     opacity: 0.8,
                 }).bindPopup(createClosurePopup(closure));
+
+                // Add direction arrows to the layer group
+                const arrows = createDirectionArrows(closure, points);
+                arrows.forEach(arrow => {
+                    arrow.on('click', () => {
+                        selectClosure(closure);
+                    });
+                    layerGroup.addLayer(arrow);
+                });
             }
 
             if (layer) {
@@ -252,6 +422,38 @@ const MapEventHandler: React.FC<{
     return null;
 };
 
+// Create preview arrows for point selection
+function createPreviewArrows(selectedPoints: L.LatLng[]): L.Marker[] {
+    const arrows: L.Marker[] = [];
+
+    if (selectedPoints.length < 2) return arrows;
+
+    // Calculate bearing between consecutive points
+    for (let i = 0; i < selectedPoints.length - 1; i++) {
+        const point1 = selectedPoints[i];
+        const point2 = selectedPoints[i + 1];
+
+        const bearing = calculateBearing(point1.lat, point1.lng, point2.lat, point2.lng);
+
+        // Place arrow at midpoint
+        const midLat = (point1.lat + point2.lat) / 2;
+        const midLng = (point1.lng + point2.lng) / 2;
+
+        const arrowIcon = createArrowIcon(bearing, false, '#3b82f6');
+        const marker = L.marker([midLat, midLng], { icon: arrowIcon });
+
+        marker.bindTooltip(`Preview: ${Math.round(bearing)}° ${getCompassDirection(bearing)}`, {
+            permanent: false,
+            direction: 'top',
+            className: 'preview-arrow-tooltip'
+        });
+
+        arrows.push(marker);
+    }
+
+    return arrows;
+}
+
 // Helper functions
 function getClosureColor(closure: Closure): string {
     switch (closure.status) {
@@ -277,6 +479,10 @@ function createClosurePopup(closure: Closure): string {
         return `${Math.round(hours / 24)} days`;
     };
 
+    const directionInfo = closure.geometry.type === 'LineString'
+        ? `<div><strong>Direction:</strong> ${closure.is_bidirectional ? 'Bidirectional ⟷' : 'Unidirectional →'}</div>`
+        : '';
+
     return `
         <div class="closure-popup">
             <h3 class="font-semibold text-gray-900 mb-2">${closure.description}</h3>
@@ -288,6 +494,7 @@ function createClosurePopup(closure: Closure): string {
                 <div><strong>Source:</strong> ${closure.source}</div>
                 <div><strong>Duration:</strong> ${getDurationText(closure.duration_hours)}</div>
                 <div><strong>Confidence:</strong> ${closure.confidence_level}/10</div>
+                ${directionInfo}
                 <div class="text-xs text-gray-500 mt-2">
                     <div><strong>Start:</strong> ${formatDate(closure.start_time)}</div>
                     <div><strong>End:</strong> ${formatDate(closure.end_time)}</div>
@@ -352,6 +559,49 @@ const MapComponent: React.FC<MapComponentProps> = ({
                 .closure-marker-inner {
                     animation: pulse 2s infinite;
                 }
+
+                .arrow-container {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 24px;
+                    height: 24px;
+                }
+                
+                .arrow-marker {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 20px;
+                    height: 20px;
+                    border-radius: 50%;
+                    font-size: 12px;
+                    font-weight: bold;
+                    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+                }
+
+                .custom-arrow-icon {
+                    background: none !important;
+                    border: none !important;
+                }
+
+                .arrow-tooltip {
+                    background-color: rgba(0, 0, 0, 0.8) !important;
+                    color: white !important;
+                    border: none !important;
+                    border-radius: 4px !important;
+                    font-size: 11px !important;
+                    padding: 4px 8px !important;
+                }
+
+                .preview-arrow-tooltip {
+                    background-color: rgba(59, 130, 246, 0.9) !important;
+                    color: white !important;
+                    border: none !important;
+                    border-radius: 4px !important;
+                    font-size: 11px !important;
+                    padding: 4px 8px !important;
+                }
                 
                 @keyframes pulse {
                     0% { transform: scale(1); }
@@ -395,6 +645,11 @@ const MapComponent: React.FC<MapComponentProps> = ({
                 />
             </MapContainer>
 
+            {/* Direction Legend */}
+            <div className="absolute top-4 right-4 z-30 max-w-xs">
+                <DirectionLegend />
+            </div>
+
             {/* Selection Controls */}
             {isSelecting && selectedPoints.length > 0 && (
                 <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-30 bg-white rounded-lg shadow-lg border border-gray-200 p-3">
@@ -403,8 +658,9 @@ const MapComponent: React.FC<MapComponentProps> = ({
                             <span className="font-medium">{selectedPoints.length}</span> points selected
                         </div>
                         {selectedPoints.length >= 2 && (
-                            <div className="text-xs text-green-600 font-medium">
-                                ✓ Ready for LineString
+                            <div className="text-xs text-green-600 font-medium flex items-center space-x-1">
+                                <span>✓ Ready for LineString</span>
+                                <span className="text-blue-600">→</span>
                             </div>
                         )}
                         <div className="flex space-x-2">

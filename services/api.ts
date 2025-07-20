@@ -49,7 +49,6 @@ api.interceptors.response.use(
     }
 );
 
-// Updated types to match backend API
 export interface Closure {
     id: number;
     geometry: {
@@ -69,6 +68,7 @@ export interface Closure {
     openlr_code?: string;
     is_valid: boolean;
     duration_hours: number;
+    is_bidirectional: boolean; // NEW: Direction support
 }
 
 export interface CreateClosureData {
@@ -82,7 +82,83 @@ export interface CreateClosureData {
     closure_type: 'construction' | 'accident' | 'event' | 'maintenance' | 'weather' | 'emergency' | 'other';
     source: string;
     confidence_level: number;
+    is_bidirectional?: boolean; // NEW: Direction support (optional, defaults to false for Point)
 }
+
+// Utility function to calculate bearing between two points
+export const calculateBearing = (lat1: number, lng1: number, lat2: number, lng2: number): number => {
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const lat1Rad = lat1 * Math.PI / 180;
+    const lat2Rad = lat2 * Math.PI / 180;
+
+    const y = Math.sin(dLng) * Math.cos(lat2Rad);
+    const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLng);
+
+    const bearing = Math.atan2(y, x) * 180 / Math.PI;
+    return (bearing + 360) % 360; // Normalize to 0-360
+};
+
+// Utility function to get direction arrows based on bearing
+export const getDirectionArrow = (bearing: number, isBidirectional: boolean = false): string => {
+    if (isBidirectional) {
+        return '⟷'; // Bidirectional arrow
+    }
+
+    // Unidirectional arrows based on bearing (0° = North, 90° = East, 180° = South, 270° = West)
+    if (bearing >= 337.5 || bearing < 22.5) return '↑'; // North
+    if (bearing >= 22.5 && bearing < 67.5) return '↗'; // Northeast  
+    if (bearing >= 67.5 && bearing < 112.5) return '→'; // East
+    if (bearing >= 112.5 && bearing < 157.5) return '↘'; // Southeast
+    if (bearing >= 157.5 && bearing < 202.5) return '↓'; // South
+    if (bearing >= 202.5 && bearing < 247.5) return '↙'; // Southwest
+    if (bearing >= 247.5 && bearing < 292.5) return '←'; // West
+    if (bearing >= 292.5 && bearing < 337.5) return '↖'; // Northwest
+
+    return '↑'; // Default to up arrow (North)
+};
+
+// Utility function to interpolate points along a line for arrow placement
+export const interpolateLinePoints = (coordinates: number[][], numArrows: number = 3): number[][] => {
+    if (coordinates.length < 2) return coordinates;
+
+    const points: number[][] = [];
+    const totalSegments = numArrows + 1;
+
+    // Calculate total line length
+    let totalLength = 0;
+    const segmentLengths: number[] = [];
+
+    for (let i = 0; i < coordinates.length - 1; i++) {
+        const [lng1, lat1] = coordinates[i];
+        const [lng2, lat2] = coordinates[i + 1];
+        const length = Math.sqrt(Math.pow(lng2 - lng1, 2) + Math.pow(lat2 - lat1, 2));
+        segmentLengths.push(length);
+        totalLength += length;
+    }
+
+    // Place arrows at equal intervals along the line
+    for (let i = 1; i <= numArrows; i++) {
+        const targetDistance = (totalLength * i) / totalSegments;
+        let currentDistance = 0;
+
+        for (let j = 0; j < segmentLengths.length; j++) {
+            if (currentDistance + segmentLengths[j] >= targetDistance) {
+                const segmentProgress = (targetDistance - currentDistance) / segmentLengths[j];
+                const [lng1, lat1] = coordinates[j];
+                const [lng2, lat2] = coordinates[j + 1];
+
+                const interpolatedLng = lng1 + (lng2 - lng1) * segmentProgress;
+                const interpolatedLat = lat1 + (lat2 - lat1) * segmentProgress;
+
+                points.push([interpolatedLng, interpolatedLat]);
+                break;
+            }
+            currentDistance += segmentLengths[j];
+        }
+    }
+
+    return points;
+};
 
 export interface BoundingBox {
     north: number;

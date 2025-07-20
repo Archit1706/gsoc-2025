@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { Calendar, Clock, MapPin, User, TriangleAlert, X, Info, Zap, ChevronLeft, ChevronRight, Shield } from 'lucide-react';
+import { Calendar, Clock, MapPin, User, TriangleAlert, X, Info, Zap, ChevronLeft, ChevronRight, Shield, ArrowLeftRight, Navigation } from 'lucide-react';
 import { useClosures } from '@/context/ClosuresContext';
 import { CreateClosureData, authApi } from '@/services/api';
 import L from 'leaflet';
@@ -21,6 +21,7 @@ interface FormData {
     end_time: string;
     geometry_type: 'Point' | 'LineString';
     confidence_level: number;
+    is_bidirectional: boolean;
 }
 
 const CLOSURE_TYPES = [
@@ -69,12 +70,14 @@ const ClosureForm: React.FC<ClosureFormProps> = ({
             start_time: new Date().toISOString().slice(0, 16),
             end_time: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString().slice(0, 16),
             confidence_level: 7,
+            is_bidirectional: false,
         },
     });
 
     const watchedClosureType = watch('closure_type');
     const watchedGeometryType = watch('geometry_type');
     const watchedConfidenceLevel = watch('confidence_level');
+    const watchedIsBidirectional = watch('is_bidirectional');
 
     // Reset form when closing
     useEffect(() => {
@@ -140,6 +143,10 @@ const ClosureForm: React.FC<ClosureFormProps> = ({
                     ? [coordinates[0]]
                     : coordinates as number[][],
             },
+            // Only include is_bidirectional for LineString
+            ...(data.geometry_type === 'LineString' && {
+                is_bidirectional: data.is_bidirectional
+            })
         };
 
         try {
@@ -161,7 +168,7 @@ const ClosureForm: React.FC<ClosureFormProps> = ({
         switch (currentStep) {
             case 1:
                 return (
-                    <div className="space-y-4 max-h-full overflow-y-auto">
+                    <div className="space-y-4">
                         {/* Description */}
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-gray-700">
@@ -186,7 +193,7 @@ const ClosureForm: React.FC<ClosureFormProps> = ({
                             <label className="text-sm font-medium text-gray-700">
                                 Closure Type *
                             </label>
-                            <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
+                            <div className="grid grid-cols-2 gap-2">
                                 {CLOSURE_TYPES.map(type => (
                                     <label
                                         key={type.value}
@@ -220,7 +227,7 @@ const ClosureForm: React.FC<ClosureFormProps> = ({
                                 <Zap className="w-4 h-4" />
                                 <span>Confidence Level *</span>
                             </label>
-                            <div className="space-y-1 max-h-64 overflow-y-auto scrollbar-thin">
+                            <div className="space-y-1 max-h-48 overflow-y-auto scrollbar-thin border border-gray-200 rounded-lg p-2">
                                 {CONFIDENCE_LEVELS.map(level => (
                                     <label
                                         key={level.value}
@@ -261,7 +268,7 @@ const ClosureForm: React.FC<ClosureFormProps> = ({
 
             case 2:
                 return (
-                    <div className="space-y-4 max-h-full overflow-y-auto scrollbar-thin">
+                    <div className="space-y-4">
                         {/* Location Selection */}
                         <div className="space-y-2">
                             <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
@@ -278,6 +285,7 @@ const ClosureForm: React.FC<ClosureFormProps> = ({
                                             <li>Click "Start Selecting" below</li>
                                             <li>Click on the map to add points</li>
                                             <li>Need at least 2 points for LineString</li>
+                                            <li>Points define the direction of closure</li>
                                             <li>Click "Done" when finished</li>
                                         </ol>
                                     </div>
@@ -309,7 +317,7 @@ const ClosureForm: React.FC<ClosureFormProps> = ({
                             {selectedPoints.length > 0 && (
                                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-2">
                                     <h4 className="text-xs font-medium text-gray-700 mb-1">Selected Points:</h4>
-                                    <div className="space-y-0.5 max-h-20 overflow-y-auto scrollbar-thin">
+                                    <div className="space-y-0.5 max-h-16 overflow-y-auto scrollbar-thin">
                                         {selectedPoints.slice(0, 3).map((point, index) => (
                                             <div key={index} className="text-xs text-gray-600 font-mono">
                                                 {index + 1}: [{point.lng.toFixed(4)}, {point.lat.toFixed(4)}]
@@ -329,6 +337,57 @@ const ClosureForm: React.FC<ClosureFormProps> = ({
                                 </div>
                             )}
                         </div>
+
+                        {/* Direction Settings - Only show for LineString with multiple points */}
+                        {watchedGeometryType === 'LineString' && selectedPoints.length >= 2 && (
+                            <div className="space-y-2">
+                                <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
+                                    <Navigation className="w-4 h-4" />
+                                    <span>Traffic Direction</span>
+                                </label>
+
+                                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                                    <div className="flex items-start space-x-2">
+                                        <ArrowLeftRight className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                                        <div className="text-sm text-amber-700">
+                                            <p className="font-medium mb-1">Direction Information</p>
+                                            <p className="text-xs">
+                                                Direction is determined by the order you selected points.
+                                                {selectedPoints.length >= 2 && (
+                                                    <span className="font-medium">
+                                                        {' '}Current: Point 1 → Point {selectedPoints.length}
+                                                    </span>
+                                                )}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <label className="flex items-center space-x-3 p-3 border border-gray-300 rounded-lg hover:border-gray-400 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        {...register('is_bidirectional')}
+                                        className="text-blue-600 focus:ring-blue-500 h-4 w-4"
+                                    />
+                                    <div className="flex-1">
+                                        <div className="flex items-center space-x-2">
+                                            <span className="font-medium text-gray-900 text-sm">
+                                                Bidirectional Closure
+                                            </span>
+                                            <span className="text-lg">
+                                                {watchedIsBidirectional ? '⟷' : '→'}
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-gray-600 mt-1">
+                                            {watchedIsBidirectional
+                                                ? 'Traffic blocked in both directions along this route'
+                                                : 'Traffic blocked only in the selected direction'
+                                            }
+                                        </p>
+                                    </div>
+                                </label>
+                            </div>
+                        )}
 
                         {/* Time Range */}
                         <div className="grid grid-cols-1 gap-3">
@@ -392,7 +451,7 @@ const ClosureForm: React.FC<ClosureFormProps> = ({
 
             case 3:
                 return (
-                    <div className="space-y-4 max-h-full overflow-y-auto scrollbar-thin">
+                    <div className="space-y-4">
                         {/* Summary */}
                         <div className="bg-gray-50 p-3 rounded-lg">
                             <h4 className="font-medium text-gray-900 mb-3 text-sm">Closure Summary</h4>
@@ -415,6 +474,24 @@ const ClosureForm: React.FC<ClosureFormProps> = ({
                                         {selectedPoints.length} selected
                                     </span>
                                 </div>
+                                {watchedGeometryType === 'LineString' && selectedPoints.length >= 2 && (
+                                    <div>
+                                        <span className="font-medium text-gray-700">Direction: </span>
+                                        <span className="text-gray-900 flex items-center">
+                                            {watchedIsBidirectional ? (
+                                                <>
+                                                    <span className="mr-2">⟷</span>
+                                                    Bidirectional
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <span className="mr-2">→</span>
+                                                    Point 1 → Point {selectedPoints.length}
+                                                </>
+                                            )}
+                                        </span>
+                                    </div>
+                                )}
                                 <div>
                                     <span className="font-medium text-gray-700">Duration: </span>
                                     <span className="text-gray-900">
@@ -426,13 +503,33 @@ const ClosureForm: React.FC<ClosureFormProps> = ({
                             </div>
                         </div>
 
+                        {/* Direction Preview */}
+                        {watchedGeometryType === 'LineString' && selectedPoints.length >= 2 && (
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                <div className="flex items-start space-x-2">
+                                    <Navigation className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                                    <div className="text-xs text-blue-700">
+                                        <p className="font-medium mb-1">Direction Preview</p>
+                                        <p className="mb-2">
+                                            This {watchedIsBidirectional ? 'bidirectional' : 'unidirectional'} closure will be displayed
+                                            with direction arrows on the map to help navigation apps route traffic appropriately.
+                                        </p>
+                                        <div className="font-mono text-xs bg-blue-100 rounded p-2">
+                                            Start: [{selectedPoints[0]?.lng.toFixed(4)}, {selectedPoints[0]?.lat.toFixed(4)}]<br />
+                                            End: [{selectedPoints[selectedPoints.length - 1]?.lng.toFixed(4)}, {selectedPoints[selectedPoints.length - 1]?.lat.toFixed(4)}]
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         {/* Backend Integration Notice */}
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                             <div className="flex items-start space-x-2">
                                 <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
                                 <div className="text-xs text-blue-700">
                                     <p className="font-medium mb-1">Backend API Integration</p>
-                                    <p>This closure will be submitted with OpenLR encoding and timezone-aware timestamps.</p>
+                                    <p>This closure will be submitted with OpenLR encoding, timezone-aware timestamps, and directional information.</p>
                                 </div>
                             </div>
                         </div>
@@ -469,7 +566,8 @@ const ClosureForm: React.FC<ClosureFormProps> = ({
                                 <div className="text-xs text-gray-600 space-y-1">
                                     <div>Coordinates: {selectedPoints.length} points</div>
                                     <div>Geometry Type: LineString</div>
-                                    <div className="max-h-20 overflow-y-auto scrollbar-thin">
+                                    <div>Bidirectional: {watchedIsBidirectional ? 'Yes' : 'No'}</div>
+                                    <div className="max-h-16 overflow-y-auto scrollbar-thin border border-gray-200 rounded p-2 bg-white">
                                         <pre className="text-xs font-mono">
                                             {JSON.stringify(selectedPoints.map(p => [p.lng, p.lat]), null, 2)}
                                         </pre>
@@ -587,20 +685,20 @@ const ClosureForm: React.FC<ClosureFormProps> = ({
                             <div className="mt-2 text-xs text-gray-600">
                                 Step {currentStep} of {totalSteps}: {
                                     currentStep === 1 ? 'Closure Details' :
-                                        currentStep === 2 ? 'Location & Timing' :
+                                        currentStep === 2 ? 'Location & Direction' :
                                             'Review & Submit'
                                 }
                             </div>
                         </div>
 
                         {/* Form Content */}
-                        <form onSubmit={handleSubmit(onSubmit)} className="flex-1 flex flex-col">
-                            <div className="flex-1 p-4 overflow-y-auto form-section-scroll">
+                        <form onSubmit={handleSubmit(onSubmit)} className="flex-1 flex flex-col min-h-0">
+                            <div className="flex-1 p-4 overflow-y-auto form-section-scroll min-h-0 max-h-[calc(100vh-20rem)]">
                                 {renderStepContent()}
                             </div>
 
                             {/* Footer */}
-                            <div className="p-4 border-t border-gray-200 bg-gray-50">
+                            <div className="flex-shrink-0 p-4 border-t border-gray-200 bg-gray-50">
                                 <div className="flex items-center justify-between space-x-2">
                                     <div className="flex space-x-2">
                                         {currentStep > 1 && (

@@ -29,24 +29,28 @@ const twoWeeksFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
 export const mockClosures: Closure[] = [
     // EMERGENCY CLOSURES
     {
-        id: "closure-001",
+        id: 1,
         geometry: {
             type: "Point",
-            coordinates: [-87.6298, 41.8781] // Chicago downtown
+            coordinates: [[-87.6298, 41.8781]] // Chicago downtown
         },
         start_time: oneHourAgo.toISOString(),
         end_time: sixHoursFromNow.toISOString(),
         description: "Water main break on Michigan Avenue - Emergency repair crews on site",
-        reason: "emergency",
+        closure_type: "emergency",
         status: "active",
-        submitter: "Chicago Water Management",
-        severity: "critical",
+        source: "Chicago Water Management",
+        confidence_level: 9,
+        submitter_id: 1,
         created_at: oneHourAgo.toISOString(),
         updated_at: thirtyMinutesAgo.toISOString(),
-        openlr: "CwRbWyNG9RpsCQCaAL4="
+        openlr_code: "CwRbWyNG9RpsCQCaAL4=",
+        is_valid: true,
+        duration_hours: 5,
+        is_bidirectional: false // Point closures don't have direction
     },
     {
-        id: "closure-002",
+        id: 2,
         geometry: {
             type: "LineString",
             coordinates: [
@@ -58,34 +62,43 @@ export const mockClosures: Closure[] = [
         start_time: twoHoursAgo.toISOString(),
         end_time: fourHoursFromNow.toISOString(),
         description: "Gas leak emergency - Evacuating nearby buildings on Lincoln Avenue",
-        reason: "emergency",
+        closure_type: "emergency",
         status: "active",
-        submitter: "Peoples Gas Emergency Response",
-        severity: "critical",
+        source: "Peoples Gas Emergency Response",
+        confidence_level: 10,
+        submitter_id: 2,
         created_at: twoHoursAgo.toISOString(),
         updated_at: oneHourAgo.toISOString(),
-        openlr: "CwRbWyNG9RpsCQCaAL5="
+        openlr_code: "CwRbWyNG9RpsCQCaAL5=",
+        is_valid: true,
+        duration_hours: 6,
+        is_bidirectional: true // Complete road closure - both directions
     },
     {
-        id: "closure-003",
+        id: 3,
         geometry: {
             type: "Point",
-            coordinates: [-87.6180, 41.8690] // South Loop
+            coordinates: [[-87.6180, 41.8690]] // South Loop
         },
         start_time: fourHoursAgo.toISOString(),
         end_time: thirtyMinutesAgo.toISOString(),
         description: "Fire department emergency response - Building fire contained",
-        reason: "emergency",
-        status: "inactive",
-        submitter: "Chicago Fire Department",
-        severity: "high",
+        closure_type: "emergency",
+        status: "expired",
+        source: "Chicago Fire Department",
+        confidence_level: 8,
+        submitter_id: 3,
         created_at: fourHoursAgo.toISOString(),
-        updated_at: thirtyMinutesAgo.toISOString()
+        updated_at: thirtyMinutesAgo.toISOString(),
+        openlr_code: "CwRbWyNG9RpsCQCaAL6=",
+        is_valid: true,
+        duration_hours: 3.5,
+        is_bidirectional: false
     },
 
     // CONSTRUCTION CLOSURES
     {
-        id: "closure-004",
+        id: 4,
         geometry: {
             type: "LineString",
             coordinates: [
@@ -98,16 +111,20 @@ export const mockClosures: Closure[] = [
         start_time: twoDaysAgo.toISOString(),
         end_time: twoHoursFromNow.toISOString(),
         description: "Road construction - Lane closure on State Street for new bike lane installation",
-        reason: "construction",
+        closure_type: "construction",
         status: "active",
-        submitter: "CDOT Construction Division",
-        severity: "medium",
+        source: "CDOT Construction Division",
+        confidence_level: 7,
+        submitter_id: 4,
         created_at: twoDaysAgo.toISOString(),
         updated_at: now.toISOString(),
-        openlr: "CwRbWyNG9RpsCQCbBM6="
+        openlr_code: "CwRbWyNG9RpsCQCbBM6=",
+        is_valid: true,
+        duration_hours: 50,
+        is_bidirectional: false // Single lane closure, one direction
     },
     {
-        id: "closure-005",
+        id: 5,
         geometry: {
             type: "LineString",
             coordinates: [
@@ -120,35 +137,43 @@ export const mockClosures: Closure[] = [
         start_time: tomorrow.toISOString(),
         end_time: oneWeekFromNow.toISOString(),
         description: "Major construction project - Complete street reconstruction on North Clark Street",
-        reason: "construction",
+        closure_type: "construction",
         status: "inactive",
-        submitter: "Walsh Construction",
-        severity: "critical",
+        source: "Walsh Construction",
+        confidence_level: 9,
+        submitter_id: 5,
         created_at: now.toISOString(),
         updated_at: now.toISOString(),
-        openlr: "CwRbWyNG9RpsCQCcCN7="
+        openlr_code: "CwRbWyNG9RpsCQCcCN7=",
+        is_valid: true,
+        duration_hours: 144,
+        is_bidirectional: true // Complete street reconstruction - both directions
     },
     {
-        id: "closure-006",
+        id: 6,
         geometry: {
             type: "Point",
-            coordinates: [-87.6280, 41.8620] // Near McCormick Place
+            coordinates: [[-87.6280, 41.8620]] // Near McCormick Place
         },
         start_time: threeDaysFromNow.toISOString(),
         end_time: twoWeeksFromNow.toISOString(),
         description: "Bridge reconstruction - Temporary bridge installation on 31st Street",
-        reason: "construction",
+        closure_type: "construction",
         status: "inactive",
-        submitter: "Chicago Bridge & Iron",
-        severity: "high",
+        source: "Chicago Bridge & Iron",
+        confidence_level: 8,
+        submitter_id: 6,
         created_at: now.toISOString(),
         updated_at: now.toISOString(),
-        openlr: "CwRbWyNG9RpsCQCdDO8="
+        openlr_code: "CwRbWyNG9RpsCQCdDO8=",
+        is_valid: true,
+        duration_hours: 264,
+        is_bidirectional: false
     },
 
     // ACCIDENT CLOSURES
     {
-        id: "closure-007",
+        id: 7,
         geometry: {
             type: "LineString",
             coordinates: [
@@ -160,32 +185,41 @@ export const mockClosures: Closure[] = [
         start_time: twoDaysAgo.toISOString(),
         end_time: oneHourAgo.toISOString(),
         description: "Multi-vehicle collision cleared - All lanes reopened on Lake Shore Drive",
-        reason: "accident",
-        status: "inactive",
-        submitter: "Chicago Police Traffic Division",
-        severity: "high",
+        closure_type: "accident",
+        status: "expired",
+        source: "Chicago Police Traffic Division",
+        confidence_level: 10,
+        submitter_id: 7,
         created_at: twoDaysAgo.toISOString(),
-        updated_at: oneHourAgo.toISOString()
+        updated_at: oneHourAgo.toISOString(),
+        openlr_code: "CwRbWyNG9RpsCQCeEP0=",
+        is_valid: true,
+        duration_hours: 47,
+        is_bidirectional: false // Accident typically affects one direction more
     },
     {
-        id: "closure-008",
+        id: 8,
         geometry: {
             type: "Point",
-            coordinates: [-87.6450, 41.8750] // West Loop
+            coordinates: [[-87.6450, 41.8750]] // West Loop
         },
         start_time: thirtyMinutesAgo.toISOString(),
         end_time: twoHoursFromNow.toISOString(),
         description: "Vehicle accident - Tow truck removing disabled vehicle from intersection",
-        reason: "accident",
+        closure_type: "accident",
         status: "active",
-        submitter: "CPD District 1",
-        severity: "medium",
+        source: "CPD District 1",
+        confidence_level: 6,
+        submitter_id: 8,
         created_at: thirtyMinutesAgo.toISOString(),
         updated_at: now.toISOString(),
-        openlr: "CwRbWyNG9RpsCQCeEP1="
+        openlr_code: "CwRbWyNG9RpsCQCeEP1=",
+        is_valid: true,
+        duration_hours: 2.5,
+        is_bidirectional: false
     },
     {
-        id: "closure-009",
+        id: 9,
         geometry: {
             type: "LineString",
             coordinates: [
@@ -197,17 +231,22 @@ export const mockClosures: Closure[] = [
         start_time: sixHoursAgo.toISOString(),
         end_time: twoHoursAgo.toISOString(),
         description: "Truck rollover incident cleared - Traffic restored on Fullerton Parkway",
-        reason: "accident",
-        status: "inactive",
-        submitter: "Illinois State Police",
-        severity: "critical",
+        closure_type: "accident",
+        status: "expired",
+        source: "Illinois State Police",
+        confidence_level: 9,
+        submitter_id: 9,
         created_at: sixHoursAgo.toISOString(),
-        updated_at: twoHoursAgo.toISOString()
+        updated_at: twoHoursAgo.toISOString(),
+        openlr_code: "CwRbWyNG9RpsCQCjJU2=",
+        is_valid: true,
+        duration_hours: 4,
+        is_bidirectional: true // Major truck accident - affected both directions
     },
 
     // EVENT CLOSURES
     {
-        id: "closure-010",
+        id: 10,
         geometry: {
             type: "LineString",
             coordinates: [
@@ -220,33 +259,41 @@ export const mockClosures: Closure[] = [
         start_time: tomorrow.toISOString(),
         end_time: new Date(tomorrow.getTime() + 8 * 60 * 60 * 1000).toISOString(),
         description: "Chicago Marathon 2025 - Complete road closure in Grant Park and downtown area",
-        reason: "event",
+        closure_type: "event",
         status: "inactive",
-        submitter: "Chicago Marathon Organizers",
-        severity: "critical",
+        source: "Chicago Marathon Organizers",
+        confidence_level: 10,
+        submitter_id: 10,
         created_at: now.toISOString(),
         updated_at: now.toISOString(),
-        openlr: "CwRbWyNG9RpsCQCcCN8="
+        openlr_code: "CwRbWyNG9RpsCQCcCN8=",
+        is_valid: true,
+        duration_hours: 8,
+        is_bidirectional: true // Marathon - complete road closure
     },
     {
-        id: "closure-011",
+        id: 11,
         geometry: {
             type: "Point",
-            coordinates: [-87.6240, 41.8900] // Near Navy Pier
+            coordinates: [[-87.6240, 41.8900]] // Near Navy Pier
         },
         start_time: twoDaysFromNow.toISOString(),
         end_time: new Date(twoDaysFromNow.getTime() + 6 * 60 * 60 * 1000).toISOString(),
         description: "Street festival setup - Taste of Chicago preparation on Lower Wacker",
-        reason: "event",
+        closure_type: "event",
         status: "inactive",
-        submitter: "Chicago Special Events",
-        severity: "medium",
+        source: "Chicago Special Events",
+        confidence_level: 7,
+        submitter_id: 11,
         created_at: now.toISOString(),
         updated_at: now.toISOString(),
-        openlr: "CwRbWyNG9RpsCQCfFQ9="
+        openlr_code: "CwRbWyNG9RpsCQCfFQ9=",
+        is_valid: true,
+        duration_hours: 6,
+        is_bidirectional: false
     },
     {
-        id: "closure-012",
+        id: 12,
         geometry: {
             type: "LineString",
             coordinates: [
@@ -258,34 +305,43 @@ export const mockClosures: Closure[] = [
         start_time: oneWeekFromNow.toISOString(),
         end_time: new Date(oneWeekFromNow.getTime() + 12 * 60 * 60 * 1000).toISOString(),
         description: "Bulls parade route - Victory celebration planned for Michigan Avenue",
-        reason: "event",
+        closure_type: "event",
         status: "inactive",
-        submitter: "City of Chicago Events",
-        severity: "high",
+        source: "City of Chicago Events",
+        confidence_level: 8,
+        submitter_id: 12,
         created_at: now.toISOString(),
-        updated_at: now.toISOString()
+        updated_at: now.toISOString(),
+        openlr_code: "CwRbWyNG9RpsCQCgGR1=",
+        is_valid: true,
+        duration_hours: 12,
+        is_bidirectional: true // Parade - typically affects entire street
     },
 
     // MAINTENANCE CLOSURES
     {
-        id: "closure-013",
+        id: 13,
         geometry: {
             type: "Point",
-            coordinates: [-87.6400, 41.8790] // West Loop
+            coordinates: [[-87.6400, 41.8790]] // West Loop
         },
         start_time: now.toISOString(),
         end_time: twoHoursFromNow.toISOString(),
         description: "Utility maintenance - Scheduled gas line inspection on Randolph Street",
-        reason: "maintenance",
+        closure_type: "maintenance",
         status: "active",
-        submitter: "Peoples Gas Maintenance",
-        severity: "low",
+        source: "Peoples Gas Maintenance",
+        confidence_level: 7,
+        submitter_id: 13,
         created_at: now.toISOString(),
         updated_at: now.toISOString(),
-        openlr: "CwRbWyNG9RpsCQCdDO9="
+        openlr_code: "CwRbWyNG9RpsCQCdDO9=",
+        is_valid: true,
+        duration_hours: 2,
+        is_bidirectional: false
     },
     {
-        id: "closure-014",
+        id: 14,
         geometry: {
             type: "LineString",
             coordinates: [
@@ -297,32 +353,20 @@ export const mockClosures: Closure[] = [
         start_time: tomorrow.toISOString(),
         end_time: new Date(tomorrow.getTime() + 4 * 60 * 60 * 1000).toISOString(),
         description: "Street cleaning and pothole repair - Lane restrictions on Cermak Road",
-        reason: "maintenance",
+        closure_type: "maintenance",
         status: "inactive",
-        submitter: "Streets & Sanitation",
-        severity: "low",
-        created_at: now.toISOString(),
-        updated_at: now.toISOString()
-    },
-    {
-        id: "closure-015",
-        geometry: {
-            type: "Point",
-            coordinates: [-87.6320, 41.8600] // Chinatown area
-        },
-        start_time: twoDaysFromNow.toISOString(),
-        end_time: new Date(twoDaysFromNow.getTime() + 6 * 60 * 60 * 1000).toISOString(),
-        description: "Sewer line maintenance - Scheduled cleaning and inspection",
-        reason: "maintenance",
-        status: "inactive",
-        submitter: "Water Reclamation District",
-        severity: "medium",
+        source: "Streets & Sanitation",
+        confidence_level: 6,
+        submitter_id: 14,
         created_at: now.toISOString(),
         updated_at: now.toISOString(),
-        openlr: "CwRbWyNG9RpsCQCgGR0="
+        openlr_code: "CwRbWyNG9RpsCQChHS3=",
+        is_valid: true,
+        duration_hours: 4,
+        is_bidirectional: false // Street cleaning - usually one direction at a time
     },
     {
-        id: "closure-016",
+        id: 15,
         geometry: {
             type: "LineString",
             coordinates: [
@@ -334,35 +378,43 @@ export const mockClosures: Closure[] = [
         start_time: oneHourFromNow.toISOString(),
         end_time: sixHoursFromNow.toISOString(),
         description: "Traffic signal maintenance - Upgrading intersection controllers on North Avenue",
-        reason: "maintenance",
+        closure_type: "maintenance",
         status: "active",
-        submitter: "CDOT Signal Division",
-        severity: "medium",
+        source: "CDOT Signal Division",
+        confidence_level: 8,
+        submitter_id: 15,
         created_at: now.toISOString(),
         updated_at: now.toISOString(),
-        openlr: "CwRbWyNG9RpsCQChHS1="
+        openlr_code: "CwRbWyNG9RpsCQChHS1=",
+        is_valid: true,
+        duration_hours: 5,
+        is_bidirectional: false // Signal work - typically affects one direction
     },
 
     // WEATHER CLOSURES
     {
-        id: "closure-017",
+        id: 16,
         geometry: {
             type: "Point",
-            coordinates: [-87.6150, 41.8700] // South Loop
+            coordinates: [[-87.6150, 41.8700]] // South Loop
         },
         start_time: thirtyMinutesAgo.toISOString(),
         end_time: oneHourFromNow.toISOString(),
         description: "Ice removal operations - Salting trucks active on Roosevelt Road",
-        reason: "weather",
+        closure_type: "weather",
         status: "active",
-        submitter: "CDOT Snow Operations",
-        severity: "medium",
+        source: "CDOT Snow Operations",
+        confidence_level: 7,
+        submitter_id: 16,
         created_at: thirtyMinutesAgo.toISOString(),
         updated_at: now.toISOString(),
-        openlr: "CwRbWyNG9RpsCQCeEP0="
+        openlr_code: "CwRbWyNG9RpsCQCeEP0=",
+        is_valid: true,
+        duration_hours: 1.5,
+        is_bidirectional: false
     },
     {
-        id: "closure-018",
+        id: 17,
         geometry: {
             type: "LineString",
             coordinates: [
@@ -375,33 +427,43 @@ export const mockClosures: Closure[] = [
         start_time: oneDayAgo.toISOString(),
         end_time: fourHoursAgo.toISOString(),
         description: "Snow removal completed - All lanes cleared on Armitage Avenue",
-        reason: "weather",
-        status: "inactive",
-        submitter: "Chicago Snow Command",
-        severity: "high",
+        closure_type: "weather",
+        status: "expired",
+        source: "Chicago Snow Command",
+        confidence_level: 9,
+        submitter_id: 17,
         created_at: oneDayAgo.toISOString(),
-        updated_at: fourHoursAgo.toISOString()
+        updated_at: fourHoursAgo.toISOString(),
+        openlr_code: "CwRbWyNG9RpsCQCiIT4=",
+        is_valid: true,
+        duration_hours: 20,
+        is_bidirectional: true // Heavy snow - affected entire street
     },
     {
-        id: "closure-019",
+        id: 18,
         geometry: {
             type: "Point",
-            coordinates: [-87.6500, 41.8500] // Bridgeport area
+            coordinates: [[-87.6500, 41.8500]] // Bridgeport area
         },
         start_time: threeDaysAgo.toISOString(),
         end_time: oneDayAgo.toISOString(),
         description: "Flooding cleared - Drainage pumps removed from 35th Street underpass",
-        reason: "weather",
-        status: "inactive",
-        submitter: "Chicago Emergency Management",
-        severity: "critical",
+        closure_type: "weather",
+        status: "expired",
+        source: "Chicago Emergency Management",
+        confidence_level: 10,
+        submitter_id: 18,
         created_at: threeDaysAgo.toISOString(),
-        updated_at: oneDayAgo.toISOString()
+        updated_at: oneDayAgo.toISOString(),
+        openlr_code: "CwRbWyNG9RpsCQCkKV5=",
+        is_valid: true,
+        duration_hours: 48,
+        is_bidirectional: false
     },
 
-    // ADDITIONAL VARIETY CLOSURES
+    // ADDITIONAL VARIETY CLOSURES WITH INTERESTING DIRECTIONS
     {
-        id: "closure-020",
+        id: 19,
         geometry: {
             type: "LineString",
             coordinates: [
@@ -414,31 +476,20 @@ export const mockClosures: Closure[] = [
         start_time: threeDaysFromNow.toISOString(),
         end_time: new Date(threeDaysFromNow.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString(),
         description: "Bridge inspection and maintenance - Periodic safety check on Harrison Street Bridge",
-        reason: "maintenance",
+        closure_type: "maintenance",
         status: "inactive",
-        submitter: "Chicago Bridge Engineering",
-        severity: "high",
+        source: "Chicago Bridge Engineering",
+        confidence_level: 8,
+        submitter_id: 19,
         created_at: now.toISOString(),
-        updated_at: now.toISOString()
+        updated_at: now.toISOString(),
+        openlr_code: "CwRbWyNG9RpsCQClLW6=",
+        is_valid: true,
+        duration_hours: 48,
+        is_bidirectional: true // Bridge work - typically affects both directions
     },
     {
-        id: "closure-021",
-        geometry: {
-            type: "Point",
-            coordinates: [-87.6150, 41.8550] // Near IIT
-        },
-        start_time: oneWeekAgo.toISOString(),
-        end_time: twelvehHoursAgo.toISOString(),
-        description: "Utility work completed - New fiber optic cables installed",
-        reason: "construction",
-        status: "inactive",
-        submitter: "ComEd Infrastructure",
-        severity: "low",
-        created_at: oneWeekAgo.toISOString(),
-        updated_at: twelvehHoursAgo.toISOString()
-    },
-    {
-        id: "closure-022",
+        id: 20,
         geometry: {
             type: "LineString",
             coordinates: [
@@ -450,67 +501,17 @@ export const mockClosures: Closure[] = [
         start_time: fourHoursFromNow.toISOString(),
         end_time: eightHoursFromNow.toISOString(),
         description: "Film production - Movie shoot requiring temporary street closure on North Wells",
-        reason: "event",
+        closure_type: "event",
         status: "inactive",
-        submitter: "Chicago Film Office",
-        severity: "medium",
+        source: "Chicago Film Office",
+        confidence_level: 7,
+        submitter_id: 20,
         created_at: now.toISOString(),
         updated_at: now.toISOString(),
-        openlr: "CwRbWyNG9RpsCQCiIT2="
-    },
-    {
-        id: "closure-023",
-        geometry: {
-            type: "Point",
-            coordinates: [-87.6350, 41.8650] // UIC area
-        },
-        start_time: tomorrow.toISOString(),
-        end_time: new Date(tomorrow.getTime() + 3 * 60 * 60 * 1000).toISOString(),
-        description: "University event - Graduation ceremony traffic management",
-        reason: "event",
-        status: "inactive",
-        submitter: "UIC Campus Safety",
-        severity: "low",
-        created_at: now.toISOString(),
-        updated_at: now.toISOString()
-    },
-    {
-        id: "closure-024",
-        geometry: {
-            type: "LineString",
-            coordinates: [
-                [-87.6750, 41.8750],
-                [-87.6730, 41.8745],
-                [-87.6710, 41.8740]
-            ]
-        },
-        start_time: oneHourAgo.toISOString(),
-        end_time: fourHoursFromNow.toISOString(),
-        description: "Power outage response - ComEd crews working on electrical infrastructure",
-        reason: "emergency",
-        status: "active",
-        submitter: "ComEd Emergency Response",
-        severity: "high",
-        created_at: oneHourAgo.toISOString(),
-        updated_at: thirtyMinutesAgo.toISOString(),
-        openlr: "CwRbWyNG9RpsCQCjJU3="
-    },
-    {
-        id: "closure-025",
-        geometry: {
-            type: "Point",
-            coordinates: [-87.6420, 41.8880] // River North
-        },
-        start_time: twoHoursFromNow.toISOString(),
-        end_time: sixHoursFromNow.toISOString(),
-        description: "Building demolition - Controlled implosion safety perimeter on Ontario Street",
-        reason: "construction",
-        status: "inactive",
-        submitter: "Controlled Demolition Inc",
-        severity: "critical",
-        created_at: now.toISOString(),
-        updated_at: now.toISOString(),
-        openlr: "CwRbWyNG9RpsCQCkKV4="
+        openlr_code: "CwRbWyNG9RpsCQCiIT2=",
+        is_valid: true,
+        duration_hours: 4,
+        is_bidirectional: false // Film shoot - usually affects one direction
     }
 ];
 
@@ -534,34 +535,33 @@ const calculateStats = (): ClosureStats => {
         return end < currentTime;
     }).length;
 
-    const byReason = mockClosures.reduce((acc, closure) => {
-        acc[closure.reason] = (acc[closure.reason] || 0) + 1;
+    const byClosureType = mockClosures.reduce((acc, closure) => {
+        acc[closure.closure_type] = (acc[closure.closure_type] || 0) + 1;
         return acc;
     }, {} as Record<string, number>);
 
-    const bySeverity = mockClosures.reduce((acc, closure) => {
-        const severity = closure.severity || 'medium';
-        acc[severity] = (acc[severity] || 0) + 1;
+    const byStatus = mockClosures.reduce((acc, closure) => {
+        acc[closure.status] = (acc[closure.status] || 0) + 1;
         return acc;
     }, {} as Record<string, number>);
 
     // Calculate durations
-    const durations = mockClosures.map(closure => {
-        const start = new Date(closure.start_time);
-        const end = new Date(closure.end_time);
-        return (end.getTime() - start.getTime()) / (1000 * 60 * 60); // hours
-    });
-
+    const durations = mockClosures.map(closure => closure.duration_hours);
     const totalDuration = durations.reduce((sum, duration) => sum + duration, 0);
     const averageDuration = durations.length > 0 ? totalDuration / durations.length : 0;
+
+    // Direction statistics
+    const lineStringClosures = mockClosures.filter(c => c.geometry.type === 'LineString');
+    const bidirectionalCount = lineStringClosures.filter(c => c.is_bidirectional).length;
+    const unidirectionalCount = lineStringClosures.filter(c => !c.is_bidirectional).length;
 
     return {
         total: mockClosures.length,
         active,
         upcoming,
         expired,
-        byReason,
-        bySeverity,
+        byClosureType,
+        byStatus,
         byTimeOfDay: {
             morning: Math.floor(mockClosures.length * 0.25),
             afternoon: Math.floor(mockClosures.length * 0.35),
@@ -582,7 +582,7 @@ export const filterClosuresByBounds = (
 ): Closure[] => {
     return closures.filter(closure => {
         if (closure.geometry.type === 'Point') {
-            const [lng, lat] = closure.geometry.coordinates as number[];
+            const [lng, lat] = closure.geometry.coordinates[0] as number[];
             return lat >= bbox.south && lat <= bbox.north &&
                 lng >= bbox.west && lng <= bbox.east;
         } else if (closure.geometry.type === 'LineString') {
